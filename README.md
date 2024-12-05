@@ -1,5 +1,7 @@
 # RaspberryPi-Camera-Timelapse
 
+# 🚧 In progress! 🚧
+
 ## Overview
 
 The **RaspberryPi-Camera-Timelapse** project is a low-power camera solution that captures images at scheduled intervals, uses human detection to trigger notifications, and uploads images to the Cloudinary platform for easy access. This setup leverages the Witty Pi 4 Mini to control power cycles, allowing for a highly energy-efficient operation, ideal for time-lapse photography or remote monitoring applications. 
@@ -28,6 +30,19 @@ Make sure you have the following software and accounts set up:
 4. **SSH Access**: To deploy and manage your code on the Raspberry Pi remotely.
 
 ### Software Setup
+sudo nano /boot/firmware/config.txt 
+#Find the line: camera_auto_detect=1, update it to:
+camera_auto_detect=0
+#Find the line: [all], add the following item under it:
+dtoverlay=imx219
+#Save and reboot.
+https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/8MP-IMX219/
+
+run libacarema-hello
+
+
+sudo apt install python3-pil
+
 
 1. **Clone the Repository**:
    ```bash
