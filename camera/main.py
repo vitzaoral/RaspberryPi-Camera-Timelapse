@@ -3,7 +3,7 @@ import sys
 from camera import capture_photo, add_text_to_image
 from blynk import get_blynk_property, update_blynk_url, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
-from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet
+from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, is_in_time_interval
 
 if not is_connected_to_internet():
     print("No internet connection. Exiting.")
@@ -13,12 +13,18 @@ if not is_connected_to_internet():
 with open("../config.json", "r") as config_file:
     config = json.load(config_file)
 
+# check if is time for taking pictures
+working_time = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_pin_working_time"])
+if not is_in_time_interval(working_time):
+    print("Time is over, exit")
+    sys.exit()
+
 temp_photo_path = "/tmp/photo.jpg"
 photo_with_text_path = "result.jpg"
 
 # main program
 capture_photo(temp_photo_path)
-temperature = get_blynk_property(config["blynk_token_temperature"], config["blynk_pin_temperature"])
+temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
 text = generate_text(temperature)
 add_text_to_image(temp_photo_path, photo_with_text_path, text)
 

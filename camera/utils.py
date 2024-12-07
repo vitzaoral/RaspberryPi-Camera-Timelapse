@@ -1,5 +1,8 @@
 from datetime import datetime
 import subprocess
+from datetime import datetime, timedelta
+import requests
+import re
 
 def generate_text(temperature):
     current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
@@ -43,5 +46,38 @@ def is_connected_to_internet():
         print("Not connected to the internet.")
         return False
 
+def is_in_time_interval(encoded_time):
+    try:
+        # Vyčištění řetězce od neviditelných znaků
+        clean_time = re.sub(r'[^\x20-\x7E]', '', encoded_time)  # Povolené ASCII znaky
 
+        # Rozdělení řetězce na části
+        start_seconds = int(clean_time[:5])
+        end_seconds = int(clean_time[5:10])
+        timezone = clean_time[10:].split("3600")[0]
 
+        # Převod na časové údaje
+        start_time = timedelta(seconds=start_seconds)
+        end_time = timedelta(seconds=end_seconds)
+
+        start_time_str = str(datetime.min + start_time).split(" ")[1][:5]
+        end_time_str = str(datetime.min + end_time).split(" ")[1][:5]
+
+        print(f"Camera working time: {start_time_str} - {end_time_str}")
+
+        # Aktuální čas
+        now = datetime.now()
+        current_seconds = timedelta(
+            hours=now.hour,
+            minutes=now.minute,
+            seconds=now.second
+        )
+
+        # Kontrola intervalu
+        if start_time <= current_seconds <= end_time:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error decoding time interval: {e}")
+        return False

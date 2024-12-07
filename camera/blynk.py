@@ -6,7 +6,8 @@ def get_blynk_property(blynk_token, blynk_pin):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return response.text.strip()
+        content = response.text.strip()
+        return content
     except requests.RequestException as e:
         print(f"Error fetching temperature: {e}")
         return "N/A"
@@ -31,4 +32,3 @@ def update_blynk_pin_value(value, blynk_auth, blynk_pin):
         print(f"Blynk pin {blynk_pin} updated successfully with value {value}.")
     except requests.RequestException as e:
         print(f"Error updating Blynk pin value: {e}")
-
