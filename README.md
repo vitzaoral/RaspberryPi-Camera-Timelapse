@@ -30,6 +30,7 @@ Make sure you have the following software and accounts set up:
 4. **SSH Access**: To deploy and manage your code on the Raspberry Pi remotely.
 
 ### Software Setup
+= nastaveni kamery
 sudo nano /boot/firmware/config.txt 
 #Find the line: camera_auto_detect=1, update it to:
 camera_auto_detect=0
@@ -38,10 +39,13 @@ dtoverlay=imx219
 #Save and reboot.
 https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/8MP-IMX219/
 
+- pusteni kamery ze jede
 run libacarema-hello
 
-
+= instalace dalsich balicku
+sudo apt update
 sudo apt install python3-pil
+sudo apt install python3-opencv
 
 
 1. **Clone the Repository**:

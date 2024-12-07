@@ -21,16 +21,16 @@ if not is_within:
     sys.exit()
 
 temp_photo_path = "/tmp/photo.jpg"
-photo_with_text_path = "result.jpg"
+result_photo_path = "result.jpg"
 
 # main program
 capture_photo(temp_photo_path)
 temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
 text = generate_text(temperature)
-add_text_to_image(temp_photo_path, photo_with_text_path, text)
+add_text_to_image(temp_photo_path, result_photo_path, text)
 
 secure_url = upload_to_cloudinary(
-    photo_with_text_path,
+    result_photo_path,
     config["cloudinary_url"],
     config["cloudinary_upload_preset"],
     config["camera_number"]
