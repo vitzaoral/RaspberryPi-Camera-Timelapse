@@ -14,8 +14,9 @@ with open("../config.json", "r") as config_file:
     config = json.load(config_file)
 
 # check if is time for taking pictures
-working_time = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_pin_working_time"])
-if not is_in_time_interval(working_time):
+encoded_time = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_pin_working_time"])
+is_within, time_range = is_in_time_interval(encoded_time)
+if not is_within:
     print("Time is over, exit")
     sys.exit()
 
@@ -44,7 +45,8 @@ if secure_url:
 if wifi_signal:
     update_blynk_pin_value(wifi_signal, config["blynk_camera_auth"], config["blynk_camera_wifi_signal_pin"])
 
-if wifi_signal:
+if ip_address:
     update_blynk_pin_value(ip_address, config["blynk_camera_auth"], config["blynk_camera_ip_pin"])
-
-update_blynk_pin_value(get_current_time(), config["blynk_camera_auth"], config["blynk_camera_ip_pin"])
+    
+update_blynk_pin_value(get_current_time(), config["blynk_camera_auth"], config["blynk_camera_pin_current_time"])
+update_blynk_pin_value(time_range, config["blynk_camera_auth"], config["blynk_camera_pin_setted_working_time"])

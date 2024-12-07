@@ -1,4 +1,3 @@
-from datetime import datetime
 import subprocess
 from datetime import datetime, timedelta
 import requests
@@ -48,15 +47,12 @@ def is_connected_to_internet():
 
 def is_in_time_interval(encoded_time):
     try:
-        # Vyčištění řetězce od neviditelných znaků
-        clean_time = re.sub(r'[^\x20-\x7E]', '', encoded_time)  # Povolené ASCII znaky
+        clean_time = re.sub(r'[^\x20-\x7E]', '', encoded_time)
 
-        # Rozdělení řetězce na části
         start_seconds = int(clean_time[:5])
         end_seconds = int(clean_time[5:10])
         timezone = clean_time[10:].split("3600")[0]
 
-        # Převod na časové údaje
         start_time = timedelta(seconds=start_seconds)
         end_time = timedelta(seconds=end_seconds)
 
@@ -65,7 +61,6 @@ def is_in_time_interval(encoded_time):
 
         print(f"Camera working time: {start_time_str} - {end_time_str}")
 
-        # Aktuální čas
         now = datetime.now()
         current_seconds = timedelta(
             hours=now.hour,
@@ -73,11 +68,9 @@ def is_in_time_interval(encoded_time):
             seconds=now.second
         )
 
-        # Kontrola intervalu
-        if start_time <= current_seconds <= end_time:
-            return True
-        else:
-            return False
+        is_within_interval = start_time <= current_seconds <= end_time
+        return is_within_interval, f"{start_time_str}-{end_time_str}"
     except Exception as e:
         print(f"Error decoding time interval: {e}")
-        return False
+        return False, "Error"
+
