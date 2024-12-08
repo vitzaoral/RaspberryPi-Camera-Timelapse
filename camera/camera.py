@@ -3,7 +3,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 def capture_photo(temp_path):
     try:
-        subprocess.run(["libcamera-still", "--nopreview", "-o", temp_path], check=True)
+        subprocess.run([
+            "libcamera-still", "-o", 
+            temp_path,
+            "--shutter", "1800000",
+            "--awb", "auto",
+            "--nopreview"
+        ], check=True)
         print("Photo captured successfully.")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")

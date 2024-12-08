@@ -40,7 +40,7 @@ dtoverlay=imx219
 https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/8MP-IMX219/
 
 - pusteni kamery ze jede
-run libacarema-hello
+run libacamera-hello
 
 = instalace dalsich balicku
 sudo apt update
