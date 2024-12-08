@@ -47,6 +47,11 @@ sudo apt update
 sudo apt install python3-pil
 sudo apt install python3-opencv
 
+= instalace WittyPi4 Mini
+wget https://www.uugear.com/repo/WittyPi4/install.sh
+sudo sh install.sh
+
+
 
 1. **Clone the Repository**:
    ```bash

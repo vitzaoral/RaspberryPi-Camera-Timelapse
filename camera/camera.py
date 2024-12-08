@@ -6,7 +6,7 @@ def capture_photo(temp_path):
         subprocess.run([
             "libcamera-still", "-o", 
             temp_path,
-            "--shutter", "1800000",
+            "--shutter", "1000000",
             "--awb", "auto",
             "--nopreview"
         ], check=True)

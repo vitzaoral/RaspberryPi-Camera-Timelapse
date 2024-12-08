@@ -5,23 +5,27 @@ from blynk import get_blynk_property, update_blynk_url, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, is_in_time_interval
 from human_detection import detect_and_draw_person
-
-if not is_connected_to_internet():
-    print("No internet connection. Exiting.")
-    sys.exit()
+from witty_sheduler import schedule_deep_sleep
 
 # load config
 with open("../config.json", "r") as config_file:
     config = json.load(config_file)
 
+if not is_connected_to_internet():
+    print("No internet connection. Exiting.")
+    schedule_deep_sleep(300, config["witty_pi_path"])
+    sys.exit()
+
 # check if is time for taking pictures
 encoded_time = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_pin_working_time"])
+deep_sleep_interval = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_deep_sleep_interval_pin"])
+
 is_within, time_range = is_in_time_interval(encoded_time)
 if not is_within:
     print("Time is over, exit")
+    # TODO: deep_sleep_interval should be longer to the next start time interval
+    schedule_deep_sleep(deep_sleep_interval, config["witty_pi_path"])
     sys.exit()
-
-deep_sleep_interval = get_blynk_property(config["blynk_camera_auth"], config["blynk_camera_deep_sleep_interval_pin"])
 
 temp_photo_path = "/tmp/photo.jpg"
 result_photo_path = "result.jpg"
@@ -58,3 +62,6 @@ if ip_address:
 update_blynk_pin_value(get_current_time(), config["blynk_camera_auth"], config["blynk_camera_pin_current_time"])
 update_blynk_pin_value(time_range, config["blynk_camera_auth"], config["blynk_camera_pin_setted_working_time"])
 update_blynk_pin_value(deep_sleep_interval, config["blynk_camera_auth"], config["blynk_camera_deep_sleep_interval_setted_pin"])
+
+# Bye, go to sleep
+schedule_deep_sleep(deep_sleep_interval, config["witty_pi_path"])
