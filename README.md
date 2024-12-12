@@ -79,6 +79,8 @@ To install the WittyPi 4 Mini software:
    ```bash
    wget https://www.uugear.com/repo/WittyPi4/install.sh
    sudo sh install.sh
+   cd wittypi
+   ./wittyPi.sh
    ```
 
 ---
@@ -130,3 +132,14 @@ sudo journalctl -u camera.service
    ```bash
    git clone https://github.com/yourusername/RaspberryPi-Camera-Timelapse.git
    ```
+
+
+dietpi instalace
+1. via dietpi-software install openssh-server for scp command using
+2. sudo nano /boot/config.txt
+camera_auto_detect=0
+dtoverlay=imx219
+3. sudo reboot
+4. sudo apt install libcamera-apps
+5. [test] libcamera-hello
+6. sudo apt install python3-pil python3-opencv
