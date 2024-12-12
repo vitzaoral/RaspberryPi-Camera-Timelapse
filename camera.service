@@ -1,0 +1,15 @@
+[Unit]
+Description=Automatically run camera script after start
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/vitzaoral/camera/main.py
+WorkingDirectory=/home/vitzaoral/camera/
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=vitzaoral
+
+[Install]
+WantedBy=multi-user.target

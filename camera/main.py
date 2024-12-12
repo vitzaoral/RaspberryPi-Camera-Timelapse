@@ -3,15 +3,19 @@ import sys
 from camera import capture_photo, add_text_to_image
 from blynk import get_blynk_property, update_blynk_url, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
-from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, is_in_time_interval
+from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, is_in_time_interval, current_time
 from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 
+# TODO: use more efficient Raspbery distribution, DietPi https://dietpi.com/#download 32 vs 64 bit version (https://dietpi.com/docs/hardware/)
+# TODO: start script immediately after system start
+
 # load config
-with open("../config.json", "r") as config_file:
+with open("config.json", "r") as config_file:
     config = json.load(config_file)
 
 if not is_connected_to_internet():
+    # TODO: save photo to SD card
     print("No internet connection. Exiting.")
     schedule_deep_sleep(300, config["witty_pi_path"])
     sys.exit()
@@ -23,12 +27,12 @@ deep_sleep_interval = get_blynk_property(config["blynk_camera_auth"], config["bl
 is_within, time_range = is_in_time_interval(encoded_time)
 if not is_within:
     print("Time is over, exit")
-    # TODO: deep_sleep_interval should be longer to the next start time interval
+    # TODO: deep_sleep_interval should be longer to the next start time interval? Or use other pin to set
     schedule_deep_sleep(deep_sleep_interval, config["witty_pi_path"])
     sys.exit()
 
 temp_photo_path = "/tmp/photo.jpg"
-result_photo_path = "result.jpg"
+result_photo_path = f"{current_time}.jpg"
 
 # main program
 capture_photo(temp_photo_path)

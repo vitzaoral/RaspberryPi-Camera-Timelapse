@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 import requests
 import re
 
+current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
 def generate_text(temperature):
-    current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     return f"CAM 1   {current_time}   {temperature}°C"
 
 def get_wifi_signal_strength():
