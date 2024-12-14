@@ -2,6 +2,7 @@ import subprocess
 from datetime import datetime, timedelta
 import requests
 import re
+import os
 
 current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
@@ -52,7 +53,6 @@ def is_in_time_interval(encoded_time):
 
         start_seconds = int(clean_time[:5])
         end_seconds = int(clean_time[5:10])
-        timezone = clean_time[10:].split("3600")[0]
 
         start_time = timedelta(seconds=start_seconds)
         end_time = timedelta(seconds=end_seconds)
@@ -75,3 +75,21 @@ def is_in_time_interval(encoded_time):
         print(f"Error decoding time interval: {e}")
         return False, "Error"
 
+def delete_photo(path):
+    if os.path.exists(path):
+        try:
+            os.remove(path)
+        except Exception as e:
+            print(f"Failed to delete photo: {e}")
+
+def get_next_start_time(deep_sleep_interval):
+    deep_sleep_interval = int(deep_sleep_interval)
+    now = datetime.now()
+    
+    shutdown_time = now + timedelta(seconds=10)
+    startup_time = shutdown_time + timedelta(seconds=deep_sleep_interval)
+    
+    shutdown_time_str = shutdown_time.strftime("%d %H:%M:%S")
+    startup_time_str = startup_time.strftime("%d %H:%M:%S")
+    
+    return shutdown_time_str, startup_time_str

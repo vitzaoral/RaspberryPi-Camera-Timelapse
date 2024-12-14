@@ -1,7 +1,6 @@
 import subprocess
-from datetime import datetime, timedelta
 
-def schedule_deep_sleep(deep_sleep_interval, wittypi_path):
+def schedule_deep_sleep(shutdown_time_str, startup_time_str, wittypi_path):
     """
     Schedule the next shutdown and startup using WittyPi 4 Mini.
 
@@ -10,17 +9,6 @@ def schedule_deep_sleep(deep_sleep_interval, wittypi_path):
         wittypi_path (str): Path to the WittyPi directory.
     """
     try:
-        # Ensure deep_sleep_interval is an integer
-        deep_sleep_interval = int(deep_sleep_interval)
-
-        # Generate shutdown and startup times
-        now = datetime.now()
-        shutdown_time = now + timedelta(seconds=10)  # Shutdown in 10 seconds
-        startup_time = shutdown_time + timedelta(seconds=deep_sleep_interval)
-
-        shutdown_time_str = shutdown_time.strftime("%d %H:%M:%S")
-        startup_time_str = startup_time.strftime("%d %H:%M:%S")
-
         # Path to wittyPi.sh
         wittypi_script = "wittyPi.sh"
 

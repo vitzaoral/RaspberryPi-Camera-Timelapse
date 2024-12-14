@@ -32,3 +32,8 @@ def update_blynk_pin_value(value, blynk_auth, blynk_pin):
         print(f"Blynk pin {blynk_pin} updated successfully with value {value}.")
     except requests.RequestException as e:
         print(f"Error updating Blynk pin value: {e}")
+
+
+def update_blynk(updates, blynk_auth):
+    for pin, value in updates.items():
+        update_blynk_pin_value(value, blynk_auth, pin)

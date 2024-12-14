@@ -1,7 +1,5 @@
 # RaspberryPi-Camera-Timelapse
 
-# 🚧 In progress! 🚧
-
 ## Overview
 
 The **RaspberryPi-Camera-Timelapse** project is a low-power camera solution managed via the Blynk platform. It captures images at scheduled intervals, detects humans in the frame, overlays information such as timestamp and temperature, and uploads the enhanced images to Cloudinary. Power management is optimized using the Witty Pi 4 Mini for controlled sleep cycles, making it efficient for remote monitoring or time-lapse photography.
@@ -29,7 +27,7 @@ Make sure you have the following software and accounts set up:
 3. **Cloudinary Account**: For uploading and storing captured images.
 4. **SSH Access**: To deploy and manage your code on the Raspberry Pi remotely.
 
-# Software Setup
+# Software Setup (Raspberry Pi OS)
 
 ## 1. Camera Configuration
 To configure the camera, follow these steps:
@@ -79,8 +77,6 @@ To install the WittyPi 4 Mini software:
    ```bash
    wget https://www.uugear.com/repo/WittyPi4/install.sh
    sudo sh install.sh
-   cd wittypi
-   ./wittyPi.sh
    ```
 
 ---
@@ -127,19 +123,48 @@ sudo journalctl -u camera.service
   sudo systemctl disable camera.service
   ```
 
+---
 
-# Clone the Repository:
+# Software Setup (DietPi)
+
+DietPi is recommended for its lightweight and faster performance compared to Raspberry Pi OS. Follow these steps to set it up:
+
+## 1. Install OpenSSH Server
+Install the OpenSSH server to enable `scp` and SSH functionality:
+```bash
+sudo dietpi-software install openssh-server
+```
+
+## 2. Camera Configuration
+To configure the camera:
+1. Open the configuration file:
    ```bash
-   git clone https://github.com/yourusername/RaspberryPi-Camera-Timelapse.git
+   sudo nano /boot/config.txt
+   ```
+2. Add or modify the following lines:
+   ```plaintext
+   camera_auto_detect=0
+   dtoverlay=imx219
+   ```
+3. Save the file and reboot the system:
+   ```bash
+   sudo reboot
    ```
 
+## 3. Install libcamera Applications
+Install `libcamera` and related tools:
+```bash
+sudo apt install libcamera-apps
+```
 
-dietpi instalace
-1. via dietpi-software install openssh-server for scp command using
-2. sudo nano /boot/config.txt
-camera_auto_detect=0
-dtoverlay=imx219
-3. sudo reboot
-4. sudo apt install libcamera-apps
-5. [test] libcamera-hello
-6. sudo apt install python3-pil python3-opencv
+## 4. Verify Camera Functionality
+Test the camera functionality:
+```bash
+libcamera-hello
+```
+
+## 5. Install Python Libraries
+Install required Python libraries:
+```bash
+sudo apt install python3-pil python3-opencv
+```
