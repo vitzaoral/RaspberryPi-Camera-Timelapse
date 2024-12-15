@@ -69,7 +69,7 @@ def is_in_time_interval(encoded_time):
         )
 
         is_within_interval = start_time <= current_seconds <= end_time
-        return is_within_interval, f"{start_time_str}-{end_time_str}"
+        return is_within_interval, start_time, f"{start_time_str}-{end_time_str}"
     except Exception as e:
         print(f"Error decoding time interval: {e}")
         return False, "Error"
@@ -92,3 +92,26 @@ def get_next_start_time(deep_sleep_interval):
     startup_time_str = startup_time.strftime("%d %H:%M:%S")
     
     return shutdown_time_str, startup_time_str
+
+def get_next_start_time_from_start(start_time):
+    try:
+        now = datetime.now()
+        current_date = now.date()
+
+        # Calculate the potential startup time for today
+        potential_start_time = datetime.combine(current_date, (datetime.min + start_time).time())
+
+        # If the calculated start time is in the past, move it to the next day
+        if potential_start_time <= now:
+            potential_start_time += timedelta(days=1)
+
+        shutdown_time = now + timedelta(seconds=10)
+
+        shutdown_time_str = shutdown_time.strftime("%d %H:%M:%S")
+        startup_time_str = potential_start_time.strftime("%d %H:%M:%S")
+
+        return shutdown_time_str, startup_time_str
+
+    except Exception as e:
+        print(f"Error calculating next start time: {e}")
+        return "Error", "Error"

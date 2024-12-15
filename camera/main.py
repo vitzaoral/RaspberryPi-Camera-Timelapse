@@ -3,13 +3,11 @@ import sys
 from camera import capture_photo, add_text_to_image
 from blynk import get_blynk_property, update_blynk_url, update_blynk, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
-from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, is_in_time_interval, current_time, delete_photo, get_next_start_time
+from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet,get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time
 from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 
-# TODO: pokud neni is_within tak neuspavat na 20minut ale proste az do dalsiho dne kdy je start time
 # TODO: aktualizace kodu z gitu
-# TODO: Lens shading https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/
 
 # load config
 with open("config.json", "r") as config_file:
@@ -28,10 +26,10 @@ if not is_connected_to_internet():
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
 deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
 
-is_within, time_range = is_in_time_interval(encoded_time)
+is_within, start_time, time_range = is_in_time_interval(encoded_time)
 if not is_within:
-    print("Time is over, exit")
-    shutdown_time_str, startup_time_str = get_next_start_time(20 * 60)
+    print("Time is over, bye")
+    shutdown_time_str, startup_time_str = get_next_start_time_from_start(start_time)
     update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time"])
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
     sys.exit()
