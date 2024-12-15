@@ -1,15 +1,16 @@
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
+#     "--shutter", "1000000",  # TODO: dynamicky nastavit
 def capture_photo(temp_path):
     try:
         subprocess.run([
-            "libcamera-still", "-o", 
-            temp_path,
-            "--shutter", "1000000", # TODO: nemuze byt takhle natvrdo, musi nejak dynamicky...
-            "--awb", "auto",
-            "--nopreview"
-        ], check=True)
+    "libcamera-still", 
+    "-o", temp_path,
+    "--awb", "auto",
+    "--nopreview",
+    "--tuning-file", "imx219_160d.json"
+], check=True)
         print("Photo captured successfully.")
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")

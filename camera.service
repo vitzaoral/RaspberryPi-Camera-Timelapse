@@ -4,12 +4,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/vitzaoral/camera/main.py
-WorkingDirectory=/home/vitzaoral/camera/
+ExecStart=/usr/bin/python3 /home/timelapse/camera/main.py
+WorkingDirectory=/home/timelapse/camera/
 StandardOutput=journal
 StandardError=journal
 Restart=always
-User=vitzaoral
+User=root
 
 [Install]
 WantedBy=multi-user.target

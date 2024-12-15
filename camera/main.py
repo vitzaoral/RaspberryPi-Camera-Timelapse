@@ -7,6 +7,10 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 
+# TODO: pokud neni is_within tak neuspavat na 20minut ale proste az do dalsiho dne kdy je start time
+# TODO: aktualizace kodu z gitu
+# TODO: Lens shading https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/
+
 # load config
 with open("config.json", "r") as config_file:
     config = json.load(config_file)

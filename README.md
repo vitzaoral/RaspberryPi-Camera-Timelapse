@@ -16,7 +16,7 @@ To replicate this project, you’ll need the following components:
 
 - **Raspberry Pi Zero 2 WH**: The main processing unit, chosen for its small form factor and low power consumption.
 - **Witty Pi 4 Mini**: A real-time clock and power management module that allows the Raspberry Pi to operate on a timed power cycle, greatly reducing power usage.
-- **Raspberry Pi Camera Module V2**: The camera used for capturing images.
+- **Raspberry Pi Camera Module V2**: The camera used for capturing images (Arducam 8MP IMX219 175 Degree)
 
 ## Getting Started
 
@@ -58,6 +58,14 @@ Refer to the [ArduCam IMX219 Camera Documentation](https://docs.arducam.com/Rasp
 To ensure the camera is working, run:
 ```bash
 libcamera-hello
+```
+
+In my setup, I use the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**. I noticed that images had a significant purple tint by default. To address this, I use a tuning file. You can download the tuning file `imx219_160d.json` and apply it when running `libcamera` commands. This resolves color issues and improves overall image quality.
+
+Additional information can be found [here](https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/):
+
+```bash
+libcamera-still -o output.jpg --tuning-file /path/to/imx219_160d.json
 ```
 
 ---
@@ -161,6 +169,12 @@ sudo apt install libcamera-apps
 Test the camera functionality:
 ```bash
 libcamera-hello
+```
+
+If you are using a non-original Arducam camera, such as the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**, download and use the tuning file `imx219_160d.json`. Using this file helps correct significant color issues (e.g., purple tint) and improves image quality:
+
+```bash
+libcamera-still -o output.jpg --tuning-file /path/to/imx219_160d.json
 ```
 
 ## 5. Install Python Libraries
