@@ -33,7 +33,16 @@ def update_blynk_pin_value(value, blynk_auth, blynk_pin):
     except requests.RequestException as e:
         print(f"Error updating Blynk pin value: {e}")
 
+def update_blynk_batch(updates, blynk_auth):
+    base_url = "https://blynk.cloud/external/api/batch/update"
+    try:
+        # Format updates for batch request
+        params = {'token': blynk_auth}
+        params.update({f'{pin}': value for pin, value in updates.items()})
 
-def update_blynk(updates, blynk_auth):
-    for pin, value in updates.items():
-        update_blynk_pin_value(value, blynk_auth, pin)
+        # Send batch request
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        print(f"Blynk batch update successful with values: {updates}")
+    except requests.RequestException as e:
+        print(f"Error during Blynk batch update: {e}")

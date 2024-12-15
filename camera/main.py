@@ -1,7 +1,7 @@
 import json
 import sys
 from camera import capture_photo, add_text_to_image
-from blynk import get_blynk_property, update_blynk_url, update_blynk, update_blynk_pin_value
+from blynk import get_blynk_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet,get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time
 from human_detection import detect_and_draw_person
@@ -68,7 +68,7 @@ updates = {
 }
 
 updates = {pin: value for pin, value in updates.items() if value is not None}
-update_blynk(updates, blynk_camera_auth)
+update_blynk_batch(updates, config["blynk_camera_auth"])
 
 # Delete the photo from disk
 delete_photo(result_photo_path)
