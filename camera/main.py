@@ -22,7 +22,7 @@ witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
 
 if not is_connected_to_internet():
-    # TODO: save photo to SD card?
+    # TODO: save photo to SD card
     print("No internet connection. Exiting.")
     schedule_deep_sleep(default_deep_sleep_interval, witty_pi_path)
     sys.exit()
