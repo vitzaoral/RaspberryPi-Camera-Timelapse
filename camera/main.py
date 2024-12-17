@@ -27,16 +27,9 @@ if not is_connected_to_internet():
     schedule_deep_sleep(default_deep_sleep_interval, witty_pi_path)
     sys.exit()
 
-pins_to_fetch = [
-    config["blynk_camera_pin_working_time"],
-    config["blynk_camera_deep_sleep_interval_pin"],
-    config["blynk_camera_run_update_pin"]
-]
-blynk_values = get_blynk_properties_batch(blynk_camera_auth, pins_to_fetch)
-
-encoded_time = blynk_values.get(config["blynk_camera_pin_working_time"], "")
-deep_sleep_interval = blynk_values.get(config["blynk_camera_deep_sleep_interval_pin"], default_deep_sleep_interval)
-run_update = blynk_values.get(config["blynk_camera_run_update_pin"], 0)
+encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
+deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
+run_update = get_blynk_property(blynk_camera_auth, config["blynk_camera_run_update_pin"])
 
 if run_update:
     check_and_update_repository(config)

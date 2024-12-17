@@ -138,6 +138,7 @@ sudo journalctl -u camera.service
 DietPi is recommended for its lightweight and faster performance compared to Raspberry Pi OS. Follow these steps to set it up:
 
 ## 1. Install OpenSSH Server
+Install git with dietpi-software
 Install the OpenSSH server to enable `scp` and SSH functionality:
 ```bash
 sudo dietpi-software install openssh-server
