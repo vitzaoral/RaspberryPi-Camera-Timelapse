@@ -1,12 +1,17 @@
 import os
 import subprocess
 import sys
+from blynk import update_blynk_pin_value
 
-def check_and_update_repository(repo_path):
+def check_and_update_repository(config):
     """
     Checks for updates in the repository, pulls changes if available,
     and restarts the script.
     """
+    repo_path = config["repo_path"]
+    blynk_camera_auth = config["blynk_camera_auth"]
+    blynk_camera_run_update_pin = config["blynk_camera_run_update_pin"]
+
     try:
         # Change to the repository directory
         os.chdir(repo_path)
@@ -25,7 +30,7 @@ def check_and_update_repository(repo_path):
 
             # Ensure the updated script exists and is readable
             main_script = os.path.join(repo_path, "main.py")
-            if os.path.isfile(main_script) and os.access(main_script, os.R_OK):
+            if os.path.isfile(main_script) and os.access(main_script, os.R_OK):                
                 print("Restarting script with the new version...")
                 os.execv(sys.executable, [sys.executable, main_script])
             else:
@@ -34,17 +39,10 @@ def check_and_update_repository(repo_path):
 
         else:
             print("No updates available. Continuing...")
+        
+        update_blynk_pin_value(0, blynk_camera_auth, blynk_camera_run_update_pin)
     except subprocess.CalledProcessError as e:
         print(f"Error checking for updates: {e}")
     except Exception as e:
         print(f"Unexpected error: {e}")
         sys.exit(1)
-
-# Path to your camera directory where main.py resides
-repo_path = "/path/to/your/repository/camera"
-
-# Call the function at the start of your script
-check_and_update_repository(repo_path)
-
-# Continue with the rest of your script
-print("Running the main program...")

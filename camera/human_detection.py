@@ -60,7 +60,7 @@ def detect_and_draw_person(image_path):
                 endY = int(centerY + (height / 2))
 
                 # Draw the box
-                cv2.rectangle(image, (startX, startY), (endX, endY), (0, 255, 0), 2)
+                cv2.rectangle(image, (startX, startY), (endX, endY), (0, 255, 0), 1)
 
     # Save the output image
     cv2.imwrite(image_path, image)

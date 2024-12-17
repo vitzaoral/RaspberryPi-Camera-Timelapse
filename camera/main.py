@@ -6,8 +6,11 @@ from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet,get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time
 from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
+from update_repository import check_and_update_repository
 
-# TODO: aktualizace kodu z gitu
+version = "3.0.1"
+
+# TODO: udelat i batch GET a hodit tam i update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time"]), ten cas si poslat ale pask asi vygenerovat znova....
 
 # load config
 with open("config.json", "r") as config_file:
@@ -25,12 +28,16 @@ if not is_connected_to_internet():
 # check if is time for taking pictures
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
 deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
+run_upddate = get_blynk_property(blynk_camera_auth, config["blynk_camera_run_update_pin"])
+
+if run_upddate:
+    check_and_update_repository(config)
 
 is_within, start_time, time_range = is_in_time_interval(encoded_time)
 if not is_within:
     print("Time is over, bye")
     shutdown_time_str, startup_time_str = get_next_start_time_from_start(start_time)
-    update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time"])
+    update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time_pin"])
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
     sys.exit()
 
@@ -41,6 +48,8 @@ result_photo_path = f"{current_time}.jpg"
 capture_photo(temp_photo_path)
 
 person_detected = detect_and_draw_person(temp_photo_path)
+deep_sleep_interval = 20 if person_detected else deep_sleep_interval
+
 temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
 text = generate_text(temperature)
 add_text_to_image(temp_photo_path, result_photo_path, text)
@@ -58,6 +67,9 @@ ip_address = get_ip_address()
 if secure_url:
     update_blynk_url(secure_url, blynk_camera_auth, config["blynk_camera_image_pin"])
 
+# Delete the photo from disk
+delete_photo(result_photo_path)
+
 updates = {
     config["blynk_camera_human_detected_pin"]: 1 if person_detected else 0,
     config["blynk_camera_wifi_signal_pin"]: wifi_signal if wifi_signal else None,
@@ -65,16 +77,14 @@ updates = {
     config["blynk_camera_pin_current_time"]: get_current_time(),
     config["blynk_camera_pin_setted_working_time"]: time_range,
     config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
+    config["blynk_camera_version_pin"]: version
 }
 
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
 
-# Delete the photo from disk
-delete_photo(result_photo_path)
-
 shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
-update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time"])
+update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time_pin"])
 
 # Bye, go to sleep
 schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
