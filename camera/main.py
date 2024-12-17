@@ -14,6 +14,9 @@ version = "3.0.1"
 sleep_interval_person_detected = 10
 default_deep_sleep_interval = 300
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(script_dir)
+
 # load config
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
