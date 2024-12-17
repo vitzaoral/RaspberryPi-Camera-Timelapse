@@ -32,6 +32,7 @@ deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera
 run_update = get_blynk_property(blynk_camera_auth, config["blynk_camera_run_update_pin"])
 
 if run_update:
+    print(f"JSEM TADY {run_update}")
     check_and_update_repository(config)
 
 is_within, start_time, time_range = is_in_time_interval(encoded_time)
