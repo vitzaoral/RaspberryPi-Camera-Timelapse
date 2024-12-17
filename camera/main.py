@@ -88,10 +88,12 @@ update_blynk_batch(updates, config["blynk_camera_auth"])
 
 shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
 
-if person_detected:
-    print("Person detected! Restarting script after 20 seconds...")
-    time.sleep(sleep_interval_person_detected)
-    os.execv(sys.executable, [sys.executable] + sys.argv)
-else:
-    # Bye, go to sleep
-    schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
+print("TEST BYE")
+
+# if person_detected:
+#     print("Person detected! Restarting script after 20 seconds...")
+#     time.sleep(sleep_interval_person_detected)
+#     os.execv(sys.executable, [sys.executable] + sys.argv)
+# else:
+#     # Bye, go to sleep
+#     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
