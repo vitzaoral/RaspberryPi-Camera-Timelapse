@@ -12,6 +12,8 @@ def check_and_update_repository(config):
     blynk_camera_auth = config["blynk_camera_auth"]
     blynk_camera_run_update_pin = config["blynk_camera_run_update_pin"]
 
+    update_blynk_pin_value(0, blynk_camera_auth, blynk_camera_run_update_pin)
+
     try:
         # Change to the repository directory
         os.chdir(repo_path)
@@ -29,7 +31,7 @@ def check_and_update_repository(config):
             subprocess.run(["git", "pull"], check=True)
 
             # Ensure the updated script exists and is readable
-            main_script = os.path.join(repo_path, "main.py")
+            main_script = os.path.join(repo_path, "camera/main.py")
             if os.path.isfile(main_script) and os.access(main_script, os.R_OK):                
                 print("Restarting script with the new version...")
                 os.execv(sys.executable, [sys.executable, main_script])
@@ -39,8 +41,6 @@ def check_and_update_repository(config):
 
         else:
             print("No updates available. Continuing...")
-        
-        update_blynk_pin_value(0, blynk_camera_auth, blynk_camera_run_update_pin)
     except subprocess.CalledProcessError as e:
         print(f"Error checking for updates: {e}")
     except Exception as e:
