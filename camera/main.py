@@ -42,7 +42,7 @@ if not is_within:
     print("Time is over, bye")
     shutdown_time_str, startup_time_str = get_next_start_time_from_start(start_time)
     update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time_pin"])
-    # schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
+    schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
     sys.exit()
 
 temp_photo_path = "/tmp/photo.jpg"
