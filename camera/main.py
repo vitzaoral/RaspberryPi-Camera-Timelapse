@@ -46,13 +46,13 @@ if not is_within:
     sys.exit()
 
 temp_photo_path = "/tmp/photo.jpg"
-result_photo_path = f"{current_time}.jpg"
 
 # main program
 capture_photo(temp_photo_path)
 
 person_detected = detect_and_draw_person(temp_photo_path)
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
+result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"
 
 temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
 text = generate_text(temperature)
