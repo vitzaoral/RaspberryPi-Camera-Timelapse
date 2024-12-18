@@ -1,20 +1,21 @@
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
-#     "--shutter", "1000000",  # TODO: dynamicky nastavit
 def capture_photo(temp_path):
     try:
         subprocess.run([
-    "libcamera-still", 
-    "-o", temp_path,
-    "--awb", "auto",
-    "--nopreview",
-    "--tuning-file", "imx219_160d.json"
-], check=True)
+            "libcamera-still", 
+            "-o", temp_path,
+            "--awb", "auto",
+            "--nopreview",
+            "--tuning-file", "imx219_160d.json"
+        ], check=True)
         print("Photo captured successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
-        exit(1)
+        return True, None
+    except Exception as e:
+        error_message = f"An error occurred while capturing the photo: {e}"
+        print(error_message)
+        return False, error_message
 
 def add_text_to_image(input_path, output_path, text):
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"

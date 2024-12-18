@@ -1,6 +1,5 @@
 import json
 import sys
-import time
 import os
 from camera import capture_photo, add_text_to_image
 from blynk import get_blynk_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
@@ -46,9 +45,21 @@ if not is_within:
     sys.exit()
 
 temp_photo_path = "/tmp/photo.jpg"
+capture_photo_success, error_message = capture_photo(temp_photo_path)
 
-# main program
-capture_photo(temp_photo_path)
+if not capture_photo_success:
+    shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
+    updates = {
+    config["blynk_camera_pin_current_time"]: get_current_time(),
+    config["blynk_camera_pin_setted_working_time"]: time_range,
+    config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
+    config["blynk_camera_version_pin"]: version,
+    config["blynk_camera_next_start_time_pin"]: startup_time_str,
+    config["blynk_camera_status_pin"]: error_message
+    }
+    update_blynk_batch(updates, config["blynk_camera_auth"])
+    shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
+    schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
 
 person_detected = detect_and_draw_person(temp_photo_path)
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
@@ -84,7 +95,8 @@ updates = {
     config["blynk_camera_pin_setted_working_time"]: time_range,
     config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
     config["blynk_camera_version_pin"]: version,
-    config["blynk_camera_next_start_time_pin"]: startup_time_str
+    config["blynk_camera_next_start_time_pin"]: startup_time_str,
+    config["blynk_camera_status_pin"]: "OK"
 }
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
