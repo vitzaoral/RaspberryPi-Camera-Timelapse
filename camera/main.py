@@ -10,7 +10,7 @@ from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 from update_repository import check_and_update_repository
 
-version = "3.0.2"
+version = "3.0.3"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
