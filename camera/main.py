@@ -10,8 +10,8 @@ from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 from update_repository import check_and_update_repository
 
-version = "3.0.1"
-sleep_interval_person_detected = 10
+version = "3.0.2"
+sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -92,8 +92,7 @@ update_blynk_batch(updates, config["blynk_camera_auth"])
 shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
 
 if person_detected:
-    print("Person detected! Restarting script after 20 seconds...")
-    time.sleep(sleep_interval_person_detected)
+    print("Person detected! Restarting script")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 else:
     # Bye, go to sleep
