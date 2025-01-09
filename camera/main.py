@@ -28,7 +28,7 @@ if not is_connected_to_internet():
     print("No internet connection. Exiting.")
     shutdown_time_str, startup_time_str = get_next_start_time(default_deep_sleep_interval)
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
-    sys.exit()
+    os._exit(0)
 
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
 deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
@@ -41,9 +41,19 @@ is_within, start_time, time_range = is_in_time_interval(encoded_time)
 if not is_within:
     print("Time is over, bye")
     shutdown_time_str, startup_time_str = get_next_start_time_from_start(start_time)
-    update_blynk_pin_value(startup_time_str, blynk_camera_auth, config["blynk_camera_next_start_time_pin"])
+    updates = {
+    config["blynk_camera_pin_current_time"]: get_current_time(),
+    config["blynk_camera_pin_setted_working_time"]: time_range,
+    config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
+    config["blynk_camera_version_pin"]: version,
+    config["blynk_camera_next_start_time_pin"]: startup_time_str,
+    config["blynk_camera_status_pin"]: "Time is over, going to sleep"
+    }
+    update_blynk_batch(updates, config["blynk_camera_auth"])
+
+    shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
-    sys.exit()
+    os._exit(0)
 
 temp_photo_path = "/tmp/photo.jpg"
 capture_photo_success, error_message = capture_photo(temp_photo_path)
@@ -59,9 +69,10 @@ if not capture_photo_success:
     config["blynk_camera_status_pin"]: error_message
     }
     update_blynk_batch(updates, config["blynk_camera_auth"])
+
     shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
-    sys.exit()
+    os._exit(0)
 
 person_detected = detect_and_draw_person(temp_photo_path)
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
@@ -103,11 +114,10 @@ updates = {
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
 
-shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
-
 if person_detected:
     print("Person detected! Restarting script")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 else:
     # Bye, go to sleep
+    shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)

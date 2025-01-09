@@ -1,4 +1,5 @@
 import requests
+# TODO: except udelat obecnejsi
 
 def get_blynk_property(blynk_token, blynk_pin):
     blynk_get_url = "https://blynk.cloud/external/api/get"

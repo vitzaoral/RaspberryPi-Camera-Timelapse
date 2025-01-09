@@ -144,6 +144,11 @@ Install the OpenSSH server to enable `scp` and SSH functionality:
 sudo dietpi-software install openssh-server
 ```
 
+On client:
+  ```bash
+  ssh root@192.168.11.246
+  ```
+
 ## 2. Camera Configuration
 To configure the camera:
 1. Open the configuration file:
