@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageFont
 def capture_photo(temp_path):
     try:
         subprocess.run([
-            "libcamera-still", 
+            "rpicam-still", 
             "-o", temp_path,
             "--awb", "auto",
             "--nopreview",

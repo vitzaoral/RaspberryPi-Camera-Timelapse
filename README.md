@@ -57,16 +57,18 @@ Refer to the [ArduCam IMX219 Camera Documentation](https://docs.arducam.com/Rasp
 ## 2. Verify Camera Functionality
 To ensure the camera is working, run:
 ```bash
-libcamera-hello
+rpicam-hello
 ```
 
-In my setup, I use the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**. I noticed that images had a significant purple tint by default. To address this, I use a tuning file. You can download the tuning file `imx219_160d.json` and apply it when running `libcamera` commands. This resolves color issues and improves overall image quality.
+In my setup, I use the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**. I noticed that images had a significant purple tint by default. To address this, I use a tuning file. You can download the tuning file `imx219_160d.json` and apply it when running `rpicam` commands. This resolves color issues and improves overall image quality.
 
-Additional information can be found [here](https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/):
+Additional information can be found [here](https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/)
 
 ```bash
-libcamera-still -o output.jpg --tuning-file /path/to/imx219_160d.json
+rpicam-still -o output.jpg --tuning-file /path/to/imx219_160d.json
 ```
+
+Additional information about `rpicam` can be found [here](https://www.raspberrypi.com/documentation/computers/camera_software.html)
 
 ---
 
@@ -150,38 +152,55 @@ On client:
   ```
 
 ## 2. Camera Configuration
+
 To configure the camera:
+
 1. Open the configuration file:
    ```bash
    sudo nano /boot/config.txt
    ```
+
 2. Add or modify the following lines:
    ```plaintext
    camera_auto_detect=0
    dtoverlay=imx219
    ```
+
 3. Save the file and reboot the system:
    ```bash
    sudo reboot
    ```
 
-## 3. Install libcamera Applications
-Install `libcamera` and related tools:
+4. Additionally, ensure that the camera is enabled in the system settings:
+   - Open the DietPi configuration tool:
+     ```bash
+     dietpi-config
+     ```
+   - Navigate to `Display Options > RPi Camera` and set the camera to `[On]`.
+
+5. After these steps, the system should properly detect and configure the camera. Skipping this configuration may result in the error:
+   ```plaintext
+   ERROR: rpi cam-apps currently only supports the raspberry pi platforms
+
+## 3. Install rpicam Applications
+Install `rpicam` and related tools:
 ```bash
-sudo apt install libcamera-apps
+sudo apt install rpicam-apps
 ```
 
 ## 4. Verify Camera Functionality
 Test the camera functionality:
 ```bash
-libcamera-hello
+rpicam-hello
 ```
 
 If you are using a non-original Arducam camera, such as the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**, download and use the tuning file `imx219_160d.json`. Using this file helps correct significant color issues (e.g., purple tint) and improves image quality:
 
 ```bash
-libcamera-still -o output.jpg --tuning-file /path/to/imx219_160d.json
+rpicam-still -o output.jpg --tuning-file /path/to/imx219_160d.json
 ```
+
+Additional information about `rpicam` can be found [here](https://www.raspberrypi.com/documentation/computers/camera_software.html)
 
 ## 5. Install Python Libraries
 Install required Python libraries:
