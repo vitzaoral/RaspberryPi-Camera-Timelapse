@@ -5,7 +5,6 @@ from camera import capture_photo, add_text_to_image
 from blynk import get_blynk_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet,get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time
-from human_detection import detect_and_draw_person
 from witty_sheduler import schedule_deep_sleep
 from update_repository import check_and_update_repository
 
@@ -19,6 +18,11 @@ os.chdir(script_dir)
 # load config
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
+
+use_person_detection = config.get("use_person_detection", False)
+
+if use_person_detection:
+    from human_detection import detect_and_draw_person
 
 witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
@@ -56,7 +60,7 @@ if not is_within:
     sys.exit(0)
 
 temp_photo_path = "/tmp/photo.jpg"
-capture_photo_success, error_message = capture_photo(temp_photo_path)
+capture_photo_success, error_message = capture_photo(temp_photo_path, config["use_tuning_file"])
 
 if not capture_photo_success:
     shutdown_time_str, startup_time_str = get_next_start_time(deep_sleep_interval)
@@ -74,12 +78,15 @@ if not capture_photo_success:
     schedule_deep_sleep(shutdown_time_str, startup_time_str, witty_pi_path)
     sys.exit(0)
 
-person_detected = detect_and_draw_person(temp_photo_path)
+person_detected = False
+if use_person_detection:
+    person_detected = detect_and_draw_person(temp_photo_path)
+    
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
 result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"
 
 temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
-text = generate_text(temperature)
+text = generate_text(temperature, config["camera_number"])
 add_text_to_image(temp_photo_path, result_photo_path, text)
 
 secure_url = upload_to_cloudinary(

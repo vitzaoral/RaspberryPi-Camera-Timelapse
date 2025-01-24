@@ -88,6 +88,12 @@ To install the WittyPi 4 Mini software:
    wget https://www.uugear.com/repo/WittyPi4/install.sh
    sudo sh install.sh
    ```
+   Restart raspberry
+   
+2. Run WittyPi and setup
+   ```bash
+   pi@raspberrypi:~/wittypi $ ./wittyPi.sh
+   ```
 
 ---
 
@@ -205,5 +211,5 @@ Additional information about `rpicam` can be found [here](https://www.raspberryp
 ## 5. Install Python Libraries
 Install required Python libraries:
 ```bash
-sudo apt install python3-pil python3-opencv
+sudo apt install python3-pil python3-requests python3-opencv
 ```

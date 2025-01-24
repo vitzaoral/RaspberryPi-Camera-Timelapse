@@ -1,15 +1,20 @@
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
-def capture_photo(temp_path):
+def capture_photo(temp_path, use_tuning_file):
+    tuning_file = "imx219_160d.json"
+
+    command = [
+    "rpicam-still",
+    "-o", temp_path,
+    "--awb", "auto",
+    "--nopreview"]
+
+    if use_tuning_file:
+        command.extend(["--tuning-file", tuning_file])
+
     try:
-        subprocess.run([
-            "rpicam-still", 
-            "-o", temp_path,
-            "--awb", "auto",
-            "--nopreview",
-            "--tuning-file", "imx219_160d.json"
-        ], check=True)
+        subprocess.run(command, check=True)
         print("Photo captured successfully.")
         return True, None
     except Exception as e:
