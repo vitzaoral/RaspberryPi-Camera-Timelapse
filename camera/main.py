@@ -8,7 +8,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep
 from update_repository import check_and_update_repository
 
-version = "3.0.4"
+version = "3.0.5"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
