@@ -213,3 +213,7 @@ Install required Python libraries:
 ```bash
 sudo apt install python3-pil python3-requests python3-opencv
 ```
+
+## 6. OTA
+If you want update code over the air (OTA), you can do it with update_repository.py
+So you have to git clone repository to the Raspberry
