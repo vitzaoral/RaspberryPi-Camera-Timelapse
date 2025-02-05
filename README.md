@@ -217,3 +217,34 @@ sudo apt install python3-pil python3-requests python3-opencv
 ## 6. OTA
 If you want update code over the air (OTA), you can do it with update_repository.py
 So you have to git clone repository to the Raspberry
+
+## 7. config.json
+Define your **config.json** file in the root directory
+
+```bash
+{
+    "camera_number": 2,
+    "use_person_detection": true,
+    "use_tuning_file": true,
+    "cloudinary_url": "https://api.cloudinary.com/v1_1/xxx/image/upload",
+    "cloudinary_upload_preset": "xxx",
+    "blynk_temperature_auth": "xxx",
+    "blynk_temperature_pin": "v23",
+    "blynk_camera_auth": "xxx",
+    "blynk_camera_deep_sleep_interval_pin": "v0",
+    "blynk_camera_deep_sleep_interval_setted_pin": "v3",
+    "blynk_camera_image_pin": "v1",
+    "blynk_camera_wifi_signal_pin": "v6",
+    "blynk_camera_version_pin": "v7",
+    "blynk_camera_ip_pin": "v5",
+    "blynk_camera_pin_current_time": "v8",
+    "blynk_camera_pin_setted_working_time": "v9",
+    "blynk_camera_pin_working_time": "v10",
+    "blynk_camera_status_pin": "v13",
+    "blynk_camera_human_detected_pin": "v18",
+    "blynk_camera_next_start_time_pin": "v19",
+    "blynk_camera_run_update_pin": "v20",
+    "witty_pi_path": "/root/wittypi/",
+    "repo_path": "/home/timelapse/"
+}
+```
