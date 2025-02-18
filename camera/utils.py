@@ -85,7 +85,7 @@ def get_next_start_time(deep_sleep_interval):
     deep_sleep_interval = int(deep_sleep_interval)
     now = datetime.now()
     
-    shutdown_time = now + timedelta(seconds=5)
+    shutdown_time = now + timedelta(seconds=10)
     startup_time = shutdown_time + timedelta(seconds=deep_sleep_interval)
     
     shutdown_time_str = shutdown_time.strftime("%d %H:%M:%S")

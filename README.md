@@ -76,7 +76,7 @@ Additional information about `rpicam` can be found [here](https://www.raspberryp
 Install the necessary Python libraries and dependencies:
 ```bash
 sudo apt update
-sudo apt install python3-pil python3-opencv
+sudo apt install python3-pil python3-opencv lsb-release -y
 ```
 
 ---
