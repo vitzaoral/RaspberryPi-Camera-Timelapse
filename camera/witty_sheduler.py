@@ -1,104 +1,119 @@
 import subprocess
 import time
+import datetime
 import re
 
-def schedule_deep_sleep(shutdown_time_str, startup_time_str, wittypi_path):
+def start_wittypi_process(wittypi_path):
     """
-    Schedule the next shutdown and startup using WittyPi 4 Mini.
+    Starts the WittyPi process and returns the process along with a send_command function.
+    """
+    wittypi_script = "wittyPi.sh"
+    process = subprocess.Popen(
+        ["bash", wittypi_script],
+        cwd=wittypi_path,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    def send_command(command, delay=1):
+        process.stdin.write(command + "\n")
+        process.stdin.flush()
+        time.sleep(delay)
+
+    return process, send_command
+
+def handle_process_result(process, stdout, stderr):
+    """
+    Checks the process output for errors and returns a tuple (bool, message).
+    """
+    if stderr.strip():
+        error_msg = stderr.strip()
+        print("WittyPi stderr:")
+        print(error_msg)
+        return (False, error_msg)
+    if process.returncode != 0:
+        error_msg = f"WittyPi script failed with error code {process.returncode}."
+        print(error_msg)
+        return (False, error_msg)
+    return (True, "")
+
+def sync_time(wittypi_path):
+    """
+    Synchronizes the time using WittyPi 4 Mini.
 
     Parameters:
-        shutdown_time_str (str): Time for shutdown in format "dd HH:MM:SS".
-        startup_time_str (str): Time for startup in format "dd HH:MM:SS".
         wittypi_path (str): Path to the WittyPi directory.
+    
+    Returns:
+        tuple: (True, "") if synchronization is successful,
+               (False, error_message) if an error occurs.
     """
     try:
-        # Path to wittyPi.sh
-        wittypi_script = "wittyPi.sh"
+        process, send_command = start_wittypi_process(wittypi_path)
 
-        # Start wittyPi.sh with bash
-        process = subprocess.Popen(
-            ["bash", wittypi_script],
-            cwd=wittypi_path,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+        sys_time = None
+        rtc_time = None
 
-        def send_command(command, delay=1):
-            """
-            Send a command to the WittyPi script.
-            """
-            process.stdin.write(command + "\n")
-            process.stdin.flush()
-            time.sleep(delay)
+        # Read output and check times
+        for line in iter(process.stdout.readline, ""):
+            line = line.strip()
+            sys_time_match = re.search(r'Your system time is:\s+([0-9-]+ [0-9:]+)', line)
+            rtc_time_match = re.search(r'Your RTC time is:\s+([0-9-]+ [0-9:]+)', line)
 
-        def check_time_difference():
-            """
-            Reads output line by line and checks if system time and RTC time differ.
-            If they differ, triggers synchronization.
-            """
+            if sys_time_match:
+                sys_time_str = sys_time_match.group(1)
+                sys_time = datetime.datetime.strptime(sys_time_str, '%Y-%m-%d %H:%M:%S')
+            if rtc_time_match:
+                rtc_time_str = rtc_time_match.group(1)
+                rtc_time = datetime.datetime.strptime(rtc_time_str, '%Y-%m-%d %H:%M:%S')
 
-            sys_time = None
-            rtc_time = None
+            if sys_time and rtc_time:
+                diff = abs((sys_time - rtc_time).total_seconds())
+                print(f"🕒 System time: {sys_time_str}, RTC time: {rtc_time_str} (Difference: {diff} seconds)")
+                if diff >= 5:
+                    print("⚠️ Time difference is 5 seconds or more. Synchronizing...")
+                    send_command("3", 3)
+                else:
+                    print("✅ Times are synchronized (difference is less than 5 seconds).")
+                break
 
-            try:
-                # Iterujeme přes výstup po řádcích
-                for line in iter(process.stdout.readline, ""):
-                    line = line.strip()
-
-                    # Match system time and RTC time
-                    sys_time_match = re.search(r'Your system time is:\s+([0-9-]+ [0-9:]+)', line)
-                    rtc_time_match = re.search(r'Your RTC time is:\s+([0-9-]+ [0-9:]+)', line)
-
-                    if sys_time_match:
-                        sys_time = sys_time_match.group(1)
-                    if rtc_time_match:
-                        rtc_time = rtc_time_match.group(1)
-
-                    if sys_time and rtc_time:
-                        print(f"🕒 System Time: {sys_time}, RTC Time: {rtc_time}")
-
-                        if sys_time != rtc_time:
-                            print("⚠️ Time is not synchronized. Synchronizing...")
-                            send_command("3", 3)
-                        else:
-                            print("✅ Time is synchronized.")
-                        return
-            except Exception as e:
-                print(f"⚠️ Error in sync time: {e}")
-
-        # Send "4" for 'Schedule next shutdown'
-        send_command("4")
-        send_command(shutdown_time_str)
-
-        print("Shutdown scheduled.")
-
-        # Send "5" for 'Schedule next startup'
-        send_command("5")
-        send_command(startup_time_str)
-
-        print("Startup scheduled.")
-
-        check_time_difference()    
-        print("Time sync done")
-
-        # Exit the script with "13"
+        # End the script
         send_command("13", 0.5)
-
-        # Capture output
         stdout, stderr = process.communicate()
 
-        # Print outputs for debugging
-        print("WittyPi stdout:")
-        print(stdout)
-        if stderr.strip():
-            print("⚠️ WittyPi stderr:")
-            print(stderr)
-
-        if process.returncode == 0:
-            print(f"✅ Scheduled: shutdown at {shutdown_time_str}, startup at {startup_time_str}.")
-        else:
-            print(f"❌ WittyPi script failed with error code {process.returncode}.")
+        return handle_process_result(process, stdout, stderr)
     except Exception as e:
-        print(f"⚠️ Error while scheduling WittyPi: {e}")
+        error_msg = f"⚠️ Error during time synchronization: {e}"
+        print(error_msg)
+        return (False, error_msg)
+
+def schedule_deep_sleep(startup_time_str, wittypi_path):
+    """
+    Schedules the next shutdown and startup using WittyPi 4 Mini.
+
+    Parameters:
+        startup_time_str (str): Startup time in the format "dd HH:MM:SS".
+        wittypi_path (str): Path to the WittyPi directory.
+    
+    Returns:
+        tuple: (True, "") if scheduling is successful, or (False, error_message) if an error occurs.
+    """
+    try:
+        process, send_command = start_wittypi_process(wittypi_path)
+
+        # Send commands to schedule startup
+        send_command("5")
+        send_command(startup_time_str)
+        print("Startup schedule set.")
+        send_command("13", 0.5)
+
+        stdout, stderr = process.communicate()
+        print(stdout)
+
+        return handle_process_result(process, stdout, stderr)
+    except Exception as e:
+        error_msg = f"⚠️ Error while scheduling WittyPi: {e}"
+        print(error_msg)
+        return (False, error_msg)

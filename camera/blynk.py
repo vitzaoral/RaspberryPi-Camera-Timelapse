@@ -9,7 +9,7 @@ def get_blynk_property(blynk_token, blynk_pin):
         response.raise_for_status()
         content = response.text.strip()
         return content
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error fetching temperature: {e}")
         return "N/A"
 
@@ -20,7 +20,7 @@ def update_blynk_url(secure_url, blynk_auth, blynk_pin):
         response = requests.get(url)
         response.raise_for_status()
         print(f"Blynk property updated successfully for pin {blynk_pin}.")
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error updating Blynk property: {e}")
 
 
@@ -31,7 +31,7 @@ def update_blynk_pin_value(value, blynk_auth, blynk_pin):
         response = requests.get(url)
         response.raise_for_status()
         print(f"Blynk pin {blynk_pin} updated successfully with value {value}.")
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error updating Blynk pin value: {e}")
 
 def update_blynk_batch(updates, blynk_auth):
@@ -45,5 +45,5 @@ def update_blynk_batch(updates, blynk_auth):
         response = requests.get(base_url, params=params)
         response.raise_for_status()
         print(f"Blynk batch update successful with values: {updates}")
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error during Blynk batch update: {e}")
