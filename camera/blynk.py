@@ -1,5 +1,4 @@
 import requests
-# TODO: except udelat obecnejsi
 
 def get_blynk_property(blynk_token, blynk_pin):
     blynk_get_url = "https://blynk.cloud/external/api/get"
@@ -10,8 +9,8 @@ def get_blynk_property(blynk_token, blynk_pin):
         content = response.text.strip()
         return content
     except Exception as e:
-        print(f"Error fetching temperature: {e}")
-        return "N/A"
+        print(f"Error fetching blynk property: {e}")
+        return None
 
 def update_blynk_url(secure_url, blynk_auth, blynk_pin):
     base_url = "https://fra1.blynk.cloud/external/api/update/property"

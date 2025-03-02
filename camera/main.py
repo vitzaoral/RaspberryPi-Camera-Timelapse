@@ -8,7 +8,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.7"
+version = "3.0.8"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -46,6 +46,10 @@ sync_time(witty_pi_path)
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
 deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
 run_update = get_blynk_property(blynk_camera_auth, config["blynk_camera_run_update_pin"])
+
+if None in (encoded_time, deep_sleep_interval, run_update):
+    print("Error: One or more Blynk properties could not be retrieved. Exiting.")
+    handle_deep_sleep(default_deep_sleep_interval)
 
 if int(run_update):
     check_and_update_repository(config)
