@@ -95,6 +95,12 @@ To install the WittyPi 4 Mini software:
    pi@raspberrypi:~/wittypi $ ./wittyPi.sh
    ```
 
+3. GPIO-4 pin doesn’t reach a stable status in given time (from manual) - edit daemon.sh on line 94:
+   ```bash
+   while [ $counter –lt 25 ]; do
+   ```
+
+
 ---
 
 ## 5. Manage `camera.service`

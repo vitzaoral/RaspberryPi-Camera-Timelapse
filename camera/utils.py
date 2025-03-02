@@ -124,9 +124,9 @@ def get_next_start_time_from_start(start_time):
         # Calculate the potential startup time for today
         potential_start_time = datetime.combine(current_date, (datetime.min + start_time).time())
 
-        # If the calculated start time is in the past, move it to the hour
+        # If the calculated start time is in the past, move it to the next day
         if potential_start_time <= now:
-            potential_start_time += timedelta(hours=1)
+            potential_start_time += timedelta(days=1)
 
         startup_time_str = potential_start_time.strftime("%d %H:%M:%S")
         return startup_time_str
