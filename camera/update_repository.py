@@ -43,6 +43,7 @@ def check_and_update_repository(config):
             print("No updates available. Continuing...")
     except subprocess.CalledProcessError as e:
         print(f"Error checking for updates: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"Unexpected error: {e}")
         sys.exit(1)

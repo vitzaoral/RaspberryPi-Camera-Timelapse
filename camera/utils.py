@@ -104,17 +104,31 @@ def get_next_start_time(deep_sleep_interval):
     startup_time = now + timedelta(seconds=int(deep_sleep_interval))
     return startup_time.strftime("%d %H:%M:%S")
 
-def shutdown_device():
+
+def shutdown_device(retries=3, delay=10):
     """
-    Shuts down the Raspberry Pi using GPIO.
+    Attempts to shut down the device by setting the GPIO pin.
+    If the device does not shut down within 10 seconds, it assumes the shutdown failed and tries again.
     """
-    try:
-        print("🔻 Shutting down device using GPIO...")
-        time.sleep(5)
-        subprocess.run(["gpio", "-g", "mode", "4", "out"], check=True)
-    except Exception as e:
-        print(f"⚠️ Error while shutting down device: {e}")
-        sys.exit(1)
+    for attempt in range(1, retries + 1):
+        print(f"🔻 Attempting to shut down the device via GPIO, attempt {attempt}...")
+        try:
+            # Set GPIO pin 4 as output
+            subprocess.run(["gpio", "-g", "mode", "4", "out"], check=True)
+            # Write a value of 0 to GPIO pin 4, which should trigger device shutdown
+            subprocess.run(["gpio", "-g", "write", "4", "0"], check=True)
+        except Exception as e:
+            print(f"⚠️ Error on attempt {attempt} during GPIO setup: {e}")
+            time.sleep(delay)
+            continue
+
+        # Wait for the shutdown process to complete
+        time.sleep(delay)
+        print("⚠️ Device did not shut down after the delay, retrying...")
+
+    print("⚠️ All attempts to shut down have failed. The device remains on.")
+    return False
+
 
 def get_next_start_time_from_start(start_time):
     try:

@@ -32,7 +32,11 @@ def handle_deep_sleep(interval):
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
     if not success:
         update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
-    shutdown_device()
+    
+    shutdown_result = shutdown_device()
+    if not shutdown_result:
+        update_blynk_pin_value("Device shut down have failed.", blynk_camera_auth, config["blynk_camera_error_pin"])
+        sys.exit(1)
     sys.exit(0)
 
 # Check internet connection
@@ -40,7 +44,10 @@ if not is_connected_to_internet():
     print("No internet connection. Exiting.")
     handle_deep_sleep(default_deep_sleep_interval)
 
-sync_time(witty_pi_path)
+sync_success, sync_message = sync_time(witty_pi_path)
+
+if not sync_success:
+     update_blynk_pin_value(sync_message, blynk_camera_auth, config["blynk_camera_error_pin"])
     
 # Get Blynk settings
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
@@ -72,7 +79,12 @@ if not is_within:
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
     if not success:
         update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
-    shutdown_device()
+    
+    shutdown_result = shutdown_device()
+    if not shutdown_result:
+        update_blynk_pin_value("Device shut down have failed.", blynk_camera_auth, config["blynk_camera_error_pin"])
+        sys.exit(1)
+    
     sys.exit(0)
 
 # Capture photo

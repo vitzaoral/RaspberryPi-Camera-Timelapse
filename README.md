@@ -60,6 +60,13 @@ To ensure the camera is working, run:
 rpicam-hello
 ```
 
+If command is not known, run:
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y libcamera-apps
+```
+
 In my setup, I use the **Arducam 8MP IMX219 175 Degree Ultra Wide Angle Raspberry Pi Camera Module**. I noticed that images had a significant purple tint by default. To address this, I use a tuning file. You can download the tuning file `imx219_160d.json` and apply it when running `rpicam` commands. This resolves color issues and improves overall image quality.
 
 Additional information can be found [here](https://docs.arducam.com/Raspberry-Pi-Camera/Native-camera/Lens-Shading/)
@@ -149,13 +156,14 @@ sudo journalctl -u camera.service
 
 # Software Setup (DietPi)
 
-DietPi is recommended for its lightweight and faster performance compared to Raspberry Pi OS. Follow these steps to set it up:
+[DietPi](https://dietpi.com/#downloadinfo) is recommended for its lightweight and faster performance compared to Raspberry Pi OS. Follow these steps to set it up:
 
 ## 1. Install OpenSSH Server
 Install git with dietpi-software
 Install the OpenSSH server to enable `scp` and SSH functionality:
 ```bash
 sudo dietpi-software install openssh-server
+sudo dietpi-software install git
 ```
 
 On client:
