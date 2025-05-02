@@ -8,7 +8,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.8"
+version = "3.0.9"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -68,12 +68,14 @@ if not is_within:
     startup_time_str = get_next_start_time_from_start(start_time)
     
     updates = {
-    config["blynk_camera_pin_current_time"]: get_current_time(),
-    config["blynk_camera_pin_setted_working_time"]: time_range,
-    config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
-    config["blynk_camera_version_pin"]: version,
-    config["blynk_camera_next_start_time_pin"]: startup_time_str,
-    config["blynk_camera_status_pin"]: "Time is over, going to sleep"}
+        config["blynk_camera_pin_current_time"]: get_current_time(),
+        config["blynk_camera_pin_setted_working_time"]: time_range,
+        config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
+        config["blynk_camera_version_pin"]: version,
+        config["blynk_camera_next_start_time_pin"]: startup_time_str,
+        config["blynk_camera_status_pin"]: "Time is over, going to sleep",
+        config["blynk_camera_error_pin"]: ""
+    }
     update_blynk_batch(updates, config["blynk_camera_auth"])
 
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
@@ -125,7 +127,8 @@ updates = {
     config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
     config["blynk_camera_version_pin"]: version,
     config["blynk_camera_next_start_time_pin"]: startup_time_str,
-    config["blynk_camera_status_pin"]: "OK"
+    config["blynk_camera_status_pin"]: "OK",
+    config["blynk_camera_error_pin"]: ""
 }
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
