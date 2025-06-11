@@ -264,4 +264,4 @@ Define your **config.json** file in the root directory
 ```
 
 ## 8. final picture
-![Schema](https://raw.githubusercontent.com/vitzaoral/RaspberryPi-Camera-Timelapse/master/img/img.jpg)
+![Schema](https://raw.githubusercontent.com/vitzaoral/RaspberryPi-Camera-Timelapse/master/camera/img/img.jpg)
