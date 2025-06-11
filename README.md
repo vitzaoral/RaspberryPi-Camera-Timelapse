@@ -262,3 +262,6 @@ Define your **config.json** file in the root directory
     "repo_path": "/home/timelapse/"
 }
 ```
+
+## 8. final picture
+![Schema](https://raw.githubusercontent.com/vitzaoral/RaspberryPi-Camera-Timelapse/master/img/img.jpg)
