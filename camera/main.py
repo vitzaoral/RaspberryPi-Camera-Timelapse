@@ -44,7 +44,11 @@ if not is_connected_to_internet():
     print("No internet connection. Exiting.")
     handle_deep_sleep(default_deep_sleep_interval)
 
-sync_success, sync_message = sync_time(witty_pi_path)
+last_sync_date = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
+sync_success, sync_message, new_sync_iso = sync_time(witty_pi_path, last_sync_date)
+
+if new_sync_iso:
+    update_blynk_pin_value(new_sync_iso, blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
 
 if not sync_success:
      update_blynk_pin_value(sync_message, blynk_camera_auth, config["blynk_camera_error_pin"])
