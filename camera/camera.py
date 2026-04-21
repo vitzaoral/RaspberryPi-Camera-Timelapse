@@ -14,7 +14,7 @@ def capture_photo(temp_path, use_tuning_file):
         command.extend(["--tuning-file", tuning_file])
 
     try:
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, timeout=30)
         print("Photo captured successfully.")
         return True, None
     except Exception as e:

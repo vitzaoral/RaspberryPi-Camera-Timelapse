@@ -80,7 +80,7 @@ def is_in_time_interval(encoded_time):
         return is_within_interval, start_time, f"{start_time_str}-{end_time_str}"
     except Exception as e:
         print(f"Error decoding time interval: {e}")
-        return False, "", f"Error {e}"
+        return False, None, f"Error {e}"
 
 
 def delete_photo(path):
@@ -147,4 +147,4 @@ def get_next_start_time_from_start(start_time):
 
     except Exception as e:
         print(f"Error calculating next start time: {e}")
-        return "Error", "Error"
+        return None

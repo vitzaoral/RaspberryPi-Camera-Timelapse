@@ -2,14 +2,13 @@ import requests
 
 def upload_to_cloudinary(file_path, cloudinary_url, cloudinary_upload_preset, camera_number):
     try:
-        files = {
-            "file": open(file_path, "rb"),
-        }
-        data = {
-            "upload_preset": cloudinary_upload_preset,
-            "folder": f"camera_{camera_number}"
-        }
-        response = requests.post(cloudinary_url, files=files, data=data)
+        with open(file_path, "rb") as f:
+            files = {"file": f}
+            data = {
+                "upload_preset": cloudinary_upload_preset,
+                "folder": f"camera_{camera_number}"
+            }
+            response = requests.post(cloudinary_url, files=files, data=data)
         response.raise_for_status()
         response_data = response.json()
         image_url = response_data.get("secure_url", "No URL returned")

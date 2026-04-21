@@ -3,6 +3,9 @@ import time
 import datetime
 import re
 
+PROCESS_TIMEOUT = 30
+
+
 def start_wittypi_process(wittypi_path):
     """
     Starts the WittyPi process and returns the process along with a send_command function.
@@ -24,6 +27,7 @@ def start_wittypi_process(wittypi_path):
 
     return process, send_command
 
+
 def handle_process_result(process, stdout, stderr):
     """
     Checks the process output for errors and returns a tuple (bool, message).
@@ -40,9 +44,18 @@ def handle_process_result(process, stdout, stderr):
     return (True, "")
 
 
-import datetime
-import time
-import re
+def communicate_with_timeout(process, timeout=PROCESS_TIMEOUT):
+    """
+    Calls process.communicate() with a timeout. Kills the process on timeout.
+    Returns (stdout, stderr, timed_out).
+    """
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+        return stdout, stderr, False
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        return stdout, stderr, True
 
 
 def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5):
@@ -86,7 +99,9 @@ def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5):
             send_command("3", 5)
             # Exit interactive mode
             send_command("13", 0.5)
-            process.communicate()
+            stdout, stderr, timed_out = communicate_with_timeout(process)
+            if timed_out:
+                return False, "One-shot sync timed out", None
 
             new_iso = datetime.datetime.now().isoformat()
             print(f"✅ One-shot synchronization completed at {new_iso}")
@@ -99,13 +114,19 @@ def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5):
     print("ℹ️ Synchronization already performed today, running retry logic...")
     for attempt in range(1, max_attempts + 1):
         print(f"🔄 Attempt {attempt}/{max_attempts} to synchronize time.")
-        synchronized = False
-        diff = None
         try:
+            # Phase 1: Read current times
             process, send_command = start_wittypi_process(wittypi_path)
-            sys_time = rtc_time = None
+            send_command("13", 0.5)  # exit immediately to prevent hang
+            stdout, stderr, timed_out = communicate_with_timeout(process)
 
-            for line in iter(process.stdout.readline, ""):
+            if timed_out:
+                print(f"❌ WittyPi process timed out on attempt {attempt}")
+                time.sleep(5)
+                continue
+
+            sys_time = rtc_time = None
+            for line in stdout.split("\n"):
                 line = line.strip()
                 sys_match = re.search(r'Your system time is:\s+([0-9-]+ [0-9:]+)', line)
                 rtc_match = re.search(r'Your RTC time is:\s+([0-9-]+ [0-9:]+)', line)
@@ -113,30 +134,25 @@ def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5):
                     sys_time = datetime.datetime.strptime(sys_match.group(1), '%Y-%m-%d %H:%M:%S')
                 if rtc_match:
                     rtc_time = datetime.datetime.strptime(rtc_match.group(1), '%Y-%m-%d %H:%M:%S')
-                if sys_time and rtc_time:
-                    diff = abs((sys_time - rtc_time).total_seconds())
-                    print(f"🕒 System time: {sys_time}, RTC time: {rtc_time} (Δ {diff}s)")
-                    if diff < 5:
-                        print("✅ Times are already synchronized.")
-                        synchronized = True
-                    else:
-                        print("⚠️ Δ ≥ 5s, sending sync command...")
-                        send_command("3", 5)
-                    break
 
-            # Exit interactive mode
-            send_command("13", 0.5)
-            stdout, stderr = process.communicate()
-            ok, msg = handle_process_result(process, stdout, stderr)
-            if not ok:
-                print(f"❌ Error terminating process: {msg}")
-
-            if synchronized:
-                new_iso = datetime.datetime.now().isoformat()
-                print(f"✅ Synchronization confirmed during retry at {new_iso}")
-                return True, "", None
+            if sys_time and rtc_time:
+                diff = abs((sys_time - rtc_time).total_seconds())
+                print(f"🕒 System time: {sys_time}, RTC time: {rtc_time} (Δ {diff}s)")
+                if diff < 5:
+                    print("✅ Times are already synchronized.")
+                    return True, "", None
+                else:
+                    # Phase 2: Sync needed
+                    print("⚠️ Δ ≥ 5s, sending sync command...")
+                    process2, send_command2 = start_wittypi_process(wittypi_path)
+                    send_command2("3", 5)
+                    send_command2("13", 0.5)
+                    _, _, timed_out2 = communicate_with_timeout(process2)
+                    if timed_out2:
+                        print(f"❌ Sync process timed out on attempt {attempt}")
             else:
-                print(f"❌ Attempt {attempt} failed (Δ {diff}s).")
+                print(f"❌ Could not parse time from WittyPi output on attempt {attempt}")
+
         except Exception as e:
             print(f"❌ Exception during attempt {attempt}: {e}")
 
@@ -159,7 +175,7 @@ def schedule_deep_sleep(startup_time_str, wittypi_path, max_attempts=5):
         max_attempts (int): Maximum number of scheduling attempts.
 
     Returns:
-        tuple: 
+        tuple:
           - True, "" if scheduling is successful,
           - False, error_message if all attempts fail. error_message contains per-attempt diagnostics.
     """
@@ -170,11 +186,19 @@ def schedule_deep_sleep(startup_time_str, wittypi_path, max_attempts=5):
         try:
             # 1) Send the schedule command
             process, send_command = start_wittypi_process(wittypi_path)
-            send_command("5")                    # enter “schedule startup” menu
+            send_command("5")                    # enter "schedule startup" menu
             send_command(startup_time_str)       # send desired time, e.g. "30 09:00:00"
             print(f"  → setting startup time to {startup_time_str}")
             send_command("13", 0.5)              # exit the menu
-            stdout, stderr = process.communicate()
+            stdout, stderr, timed_out = communicate_with_timeout(process)
+
+            if timed_out:
+                reason = "scheduling process timed out"
+                print("  ❌", reason)
+                errors.append((attempt, reason))
+                time.sleep(5)
+                continue
+
             ok, msg = handle_process_result(process, stdout, stderr)
             if not ok:
                 reason = f"scheduling command failed: {msg}"
@@ -184,15 +208,23 @@ def schedule_deep_sleep(startup_time_str, wittypi_path, max_attempts=5):
                 continue
 
             # 2) Verify the newly scheduled time
-            process_verify, _ = start_wittypi_process(wittypi_path)
+            process_verify, send_verify = start_wittypi_process(wittypi_path)
+            send_verify("13", 0.5)  # exit immediately to prevent hang
+            stdout_verify, _, timed_out_verify = communicate_with_timeout(process_verify)
+
+            if timed_out_verify:
+                reason = "verification process timed out"
+                print("  ❌", reason)
+                errors.append((attempt, reason))
+                time.sleep(5)
+                continue
+
             scheduled_startup = None
-            for line in iter(process_verify.stdout.readline, ""):
-                line = line.strip()
-                m = re.search(r'Schedule next startup\s+\[([0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2})\]', line)
+            for line in stdout_verify.split("\n"):
+                m = re.search(r'Schedule next startup\s+\[([0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2})\]', line.strip())
                 if m:
                     scheduled_startup = m.group(1)
                     break
-            process_verify.terminate()
 
             if scheduled_startup is None:
                 reason = "could not read scheduled startup from output"
