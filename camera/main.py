@@ -2,15 +2,19 @@ import json
 import sys
 import os
 from camera import capture_photo, add_text_to_image
-from blynk import get_blynk_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
+from blynk import get_blynk_property, get_sys_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time, shutdown_device
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.9"
+version = "3.0.11"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
+
+# Hardcoded fallback — keeps working on Pis whose local config.json (gitignored)
+# hasn't been updated to include sys_temperature_url.
+DEFAULT_SYS_TEMPERATURE_URL = "https://sys.zaoral.cz/api/public/outdoor/temperature"
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -32,11 +36,10 @@ def handle_deep_sleep(interval):
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
     if not success:
         update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
-    
-    shutdown_result = shutdown_device()
-    if not shutdown_result:
-        update_blynk_pin_value("Device shut down have failed.", blynk_camera_auth, config["blynk_camera_error_pin"])
-        sys.exit(1)
+
+    shutdown_device()
+    # Always exit 0 to prevent systemd restart loop — if GPIO didn't cut power,
+    # restarting the script won't help and would drain the battery.
     sys.exit(0)
 
 # Check internet connection
@@ -51,7 +54,7 @@ if new_sync_iso:
     update_blynk_pin_value(new_sync_iso, blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
 
 if not sync_success:
-     update_blynk_pin_value(sync_message, blynk_camera_auth, config["blynk_camera_error_pin"])
+    update_blynk_pin_value(sync_message, blynk_camera_auth, config["blynk_camera_error_pin"])
     
 # Get Blynk settings
 encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_working_time"])
@@ -62,15 +65,24 @@ if None in (encoded_time, deep_sleep_interval, run_update):
     print("Error: One or more Blynk properties could not be retrieved. Exiting.")
     handle_deep_sleep(default_deep_sleep_interval)
 
-if int(run_update):
-    check_and_update_repository(config)
+try:
+    if int(run_update):
+        check_and_update_repository(config)
+except (ValueError, TypeError):
+    print("Error: Invalid run_update value from Blynk.")
 
 # Check working time
 is_within, start_time, time_range = is_in_time_interval(encoded_time)
 if not is_within:
     print("Time is over, bye")
+
+    if start_time is None:
+        handle_deep_sleep(default_deep_sleep_interval)
+
     startup_time_str = get_next_start_time_from_start(start_time)
-    
+    if startup_time_str is None:
+        handle_deep_sleep(default_deep_sleep_interval)
+
     updates = {
         config["blynk_camera_pin_current_time"]: get_current_time(),
         config["blynk_camera_pin_setted_working_time"]: time_range,
@@ -85,12 +97,8 @@ if not is_within:
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
     if not success:
         update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
-    
-    shutdown_result = shutdown_device()
-    if not shutdown_result:
-        update_blynk_pin_value("Device shut down have failed.", blynk_camera_auth, config["blynk_camera_error_pin"])
-        sys.exit(1)
-    
+
+    shutdown_device()
     sys.exit(0)
 
 # Capture photo
@@ -106,7 +114,7 @@ deep_sleep_interval = sleep_interval_person_detected if person_detected else dee
 result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"
 
 # Upload photo
-temperature = get_blynk_property(config["blynk_temperature_auth"], config["blynk_temperature_pin"])
+temperature = get_sys_property(config.get("sys_temperature_url", DEFAULT_SYS_TEMPERATURE_URL))
 text = generate_text(temperature, config["camera_number"])
 add_text_to_image(temp_photo_path, result_photo_path, text)
 secure_url = upload_to_cloudinary(result_photo_path, config["cloudinary_url"], config["cloudinary_upload_preset"], config["camera_number"])

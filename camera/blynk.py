@@ -1,5 +1,17 @@
 import requests
 
+
+def get_sys_property(url):
+    """Fetch a plain-text value from the beesys public API (drop-in for Blynk /get)."""
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.text.strip()
+    except Exception as e:
+        print(f"Error fetching sys property: {e}")
+        return None
+
+
 def get_blynk_property(blynk_token, blynk_pin):
     blynk_get_url = "https://blynk.cloud/external/api/get"
     url = f"{blynk_get_url}?token={blynk_token}&pin={blynk_pin}"
@@ -13,7 +25,7 @@ def get_blynk_property(blynk_token, blynk_pin):
         return None
 
 def update_blynk_url(secure_url, blynk_auth, blynk_pin):
-    base_url = "https://fra1.blynk.cloud/external/api/update/property"
+    base_url = "https://blynk.cloud/external/api/update/property"
     try:
         url = f"{base_url}?token={blynk_auth}&pin={blynk_pin}&urls={secure_url}"
         response = requests.get(url, timeout=10)
@@ -24,7 +36,7 @@ def update_blynk_url(secure_url, blynk_auth, blynk_pin):
 
 
 def update_blynk_pin_value(value, blynk_auth, blynk_pin):
-    base_url = "https://fra1.blynk.cloud/external/api/update"
+    base_url = "https://blynk.cloud/external/api/update"
     try:
         url = f"{base_url}?token={blynk_auth}&pin={blynk_pin}&value={value}"
         response = requests.get(url, timeout=10)
