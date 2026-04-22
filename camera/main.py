@@ -8,7 +8,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.15"
+version = "3.0.16"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -41,6 +41,27 @@ def handle_deep_sleep(interval):
     # Always exit 0 to prevent systemd restart loop — if GPIO didn't cut power,
     # restarting the script won't help and would drain the battery.
     sys.exit(0)
+
+
+def push_telemetry(status, error, interval, time_range_val=""):
+    """Push the standard dashboard telemetry (time, wifi, ip, version, schedule,
+    status, error) in one Blynk batch. Called both on camera-fail and on the
+    happy path so the sys dashboard never shows a stale cycle-old snapshot.
+    """
+    startup_time_str = get_next_start_time(interval) or ""
+    updates = {
+        config["blynk_camera_wifi_signal_pin"]: get_wifi_signal_strength(),
+        config["blynk_camera_ip_pin"]: get_ip_address(),
+        config["blynk_camera_pin_current_time"]: get_current_time(),
+        config["blynk_camera_pin_setted_working_time"]: time_range_val,
+        config["blynk_camera_deep_sleep_interval_setted_pin"]: interval,
+        config["blynk_camera_version_pin"]: version,
+        config["blynk_camera_next_start_time_pin"]: startup_time_str,
+        config["blynk_camera_status_pin"]: status,
+        config["blynk_camera_error_pin"]: error,
+    }
+    updates = {pin: value for pin, value in updates.items() if value is not None}
+    update_blynk_batch(updates, blynk_camera_auth)
 
 # Check internet connection
 if not is_connected_to_internet():
@@ -105,17 +126,14 @@ if not is_within:
 temp_photo_path = "/tmp/photo.jpg"
 capture_photo_success, error_message = capture_photo(temp_photo_path, config["use_tuning_file"])
 if not capture_photo_success:
-    # Surface the camera failure on Blynk (V21 error, V13 status) so the
-    # dashboard shows "camera broken" instead of silently showing stale data.
-    update_blynk_pin_value(
-        f"Camera fail: {(error_message or '')[:180]}",
-        blynk_camera_auth,
-        config["blynk_camera_error_pin"],
-    )
-    update_blynk_pin_value(
-        "Camera hardware error",
-        blynk_camera_auth,
-        config["blynk_camera_status_pin"],
+    # Camera hardware is dead — still push the rest of the telemetry so the
+    # dashboard shows fresh time/wifi/ip/version, not stale values from the
+    # last cycle when capture was still working.
+    push_telemetry(
+        status="Camera hardware error",
+        error=f"Camera fail: {(error_message or '')[:180]}",
+        interval=deep_sleep_interval,
+        time_range_val=time_range,
     )
     handle_deep_sleep(deep_sleep_interval)
 
