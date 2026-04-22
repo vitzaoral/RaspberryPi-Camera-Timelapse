@@ -8,7 +8,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.14"
+version = "3.0.15"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -105,6 +105,18 @@ if not is_within:
 temp_photo_path = "/tmp/photo.jpg"
 capture_photo_success, error_message = capture_photo(temp_photo_path, config["use_tuning_file"])
 if not capture_photo_success:
+    # Surface the camera failure on Blynk (V21 error, V13 status) so the
+    # dashboard shows "camera broken" instead of silently showing stale data.
+    update_blynk_pin_value(
+        f"Camera fail: {(error_message or '')[:180]}",
+        blynk_camera_auth,
+        config["blynk_camera_error_pin"],
+    )
+    update_blynk_pin_value(
+        "Camera hardware error",
+        blynk_camera_auth,
+        config["blynk_camera_status_pin"],
+    )
     handle_deep_sleep(deep_sleep_interval)
 
 # Person detection
