@@ -8,13 +8,16 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.16"
+version = "3.1.0"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
 # Hardcoded fallback — keeps working on Pis whose local config.json (gitignored)
 # hasn't been updated to include sys_temperature_url.
 DEFAULT_SYS_TEMPERATURE_URL = "https://sys.zaoral.cz/api/public/outdoor/temperature"
+# Fallback for force-sync Blynk pin — every camera uses V24, no need to add it
+# to config.json after `git pull` (configs are gitignored).
+DEFAULT_FORCE_SYNC_PIN = "v24"
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -31,9 +34,19 @@ witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
 
 def handle_deep_sleep(interval):
-    """Handles scheduling deep sleep and updating Blynk on failure."""
+    """Schedule next wakeup, then shut down. On schedule failure, force a fresh
+    RTC sync and retry once — schedule fails almost always trace back to RTC
+    drift, so re-syncing usually fixes it and avoids the device going dark.
+    """
     startup_time_str = get_next_start_time(interval)
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
+
+    if not success:
+        print("⚠️ schedule_deep_sleep failed — forcing RTC sync and retrying once.")
+        sync_ok, _, _ = sync_time(witty_pi_path, last_sync_iso=None, force=True)
+        if sync_ok:
+            success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
+
     if not success:
         update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
 
@@ -69,10 +82,26 @@ if not is_connected_to_internet():
     handle_deep_sleep(default_deep_sleep_interval)
 
 last_sync_date = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
-sync_success, sync_message, new_sync_iso = sync_time(witty_pi_path, last_sync_date)
+
+# Force-sync button (Blynk V24): when the user toggles it on, ignore the
+# "already synced today" shortcut and run a full sync-and-verify cycle. The
+# pin is reset back to 0 after a successful sync so it doesn't keep firing.
+force_sync_pin = config.get("blynk_camera_force_sync_pin", DEFAULT_FORCE_SYNC_PIN)
+raw = get_blynk_property(blynk_camera_auth, force_sync_pin)
+try:
+    force_sync = bool(int(raw or "0"))
+except (ValueError, TypeError):
+    force_sync = False
+if force_sync:
+    print("🔧 Force sync requested via Blynk pin.")
+
+sync_success, sync_message, new_sync_iso = sync_time(witty_pi_path, last_sync_date, force=force_sync)
 
 if new_sync_iso:
     update_blynk_pin_value(new_sync_iso, blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
+
+if force_sync and sync_success:
+    update_blynk_pin_value(0, blynk_camera_auth, force_sync_pin)
 
 if not sync_success:
     update_blynk_pin_value(sync_message, blynk_camera_auth, config["blynk_camera_error_pin"])

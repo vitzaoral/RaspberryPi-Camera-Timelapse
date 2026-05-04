@@ -4,6 +4,7 @@ import datetime
 import re
 
 PROCESS_TIMEOUT = 30
+ACCEPTABLE_DRIFT_SECONDS = 5
 
 
 def start_wittypi_process(wittypi_path):
@@ -58,109 +59,111 @@ def communicate_with_timeout(process, timeout=PROCESS_TIMEOUT):
         return stdout, stderr, True
 
 
-def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5):
+def _read_times(wittypi_path):
     """
-    Synchronizes the system and RTC time using WittyPi 4 Mini.
+    Open wittyPi.sh, exit immediately, and parse system + RTC time from the
+    banner. Returns (sys_time, rtc_time) as datetimes, or (None, None) on error.
+    """
+    process, send_command = start_wittypi_process(wittypi_path)
+    send_command("13", 0.5)  # exit interactive menu
+    stdout, _, timed_out = communicate_with_timeout(process)
+    if timed_out:
+        return None, None
 
-    If no synchronization has occurred today (last_sync_iso is None or from a previous date),
-    performs a one-shot sync by sending the sync command and returns immediately.
+    sys_time = rtc_time = None
+    for line in stdout.split("\n"):
+        line = line.strip()
+        sys_match = re.search(r'Your system time is:\s+([0-9-]+ [0-9:]+)', line)
+        rtc_match = re.search(r'Your RTC time is:\s+([0-9-]+ [0-9:]+)', line)
+        if sys_match:
+            sys_time = datetime.datetime.strptime(sys_match.group(1), '%Y-%m-%d %H:%M:%S')
+        if rtc_match:
+            rtc_time = datetime.datetime.strptime(rtc_match.group(1), '%Y-%m-%d %H:%M:%S')
+    return sys_time, rtc_time
 
-    If synchronization has already occurred today, runs the original retry logic up to
-    max_attempts, verifying that the time difference is less than 5 seconds.
+
+def _send_sync(wittypi_path):
+    """
+    Send the wittyPi.sh "synchronize time" command (menu item 3) and exit.
+    Returns True if the process completed cleanly, False on timeout.
+    """
+    process, send_command = start_wittypi_process(wittypi_path)
+    send_command("3", 5)     # synchronize time
+    send_command("13", 0.5)  # exit menu
+    _, _, timed_out = communicate_with_timeout(process)
+    return not timed_out
+
+
+def sync_time(wittypi_path, last_sync_iso=None, max_attempts=5, force=False):
+    """
+    Synchronizes system and RTC time via WittyPi 4 Mini, always with verification.
+
+    Decision tree:
+    - force=True → always run sync-and-verify loop
+    - last sync today AND current drift < 5s → no-op (already in sync)
+    - otherwise → run sync-and-verify loop up to max_attempts
+
+    Each sync attempt: send wittyPi.sh "3" (sync), then re-read times and check
+    that |system - RTC| < 5s. Returns success only after verification passes.
 
     Parameters:
         wittypi_path (str): Path to the WittyPi directory.
-        last_sync_iso (str or None): ISO-8601 timestamp of the last synchronization from Blynk.
-        max_attempts (int): Maximum number of synchronization attempts when retrying.
+        last_sync_iso (str or None): ISO-8601 timestamp of last sync (from Blynk).
+        max_attempts (int): Maximum sync+verify attempts.
+        force (bool): If True, skip the "already synced today" shortcut and always sync.
 
     Returns:
-        tuple:
-          - success (bool)
-          - error_message (str)
-          - new_sync_iso (str): ISO-8601 timestamp of the new synchronization (or original last_sync_iso if skipped).
+        tuple (success: bool, error_message: str, new_sync_iso: str or None)
     """
     today = datetime.date.today()
-
-    # Determine if a synchronization has already occurred today
+    last_dt = None
     if last_sync_iso:
         try:
             last_dt = datetime.datetime.fromisoformat(last_sync_iso)
         except ValueError:
-            last_dt = None
-    else:
-        last_dt = None
+            pass
 
-    # 1) If no sync today, perform one-shot sync and return
-    if not last_dt or last_dt.date() != today:
-        print("🔧 No sync recorded today, performing one-shot synchronization...")
-        try:
-            process, send_command = start_wittypi_process(wittypi_path)
-            # Send sync command and wait 5 seconds
-            send_command("3", 5)
-            # Exit interactive mode
-            send_command("13", 0.5)
-            stdout, stderr, timed_out = communicate_with_timeout(process)
-            if timed_out:
-                return False, "One-shot sync timed out", None
+    already_synced_today = last_dt is not None and last_dt.date() == today
 
-            new_iso = datetime.datetime.now().isoformat()
-            print(f"✅ One-shot synchronization completed at {new_iso}")
-            return True, "", new_iso
-        except Exception as e:
-            print("❌ Error during one-shot synchronization:", e)
-            return False, str(e), None
+    # Shortcut: already synced today and drift is small → no-op
+    if not force and already_synced_today:
+        sys_time, rtc_time = _read_times(wittypi_path)
+        if sys_time and rtc_time:
+            drift = abs((sys_time - rtc_time).total_seconds())
+            if drift < ACCEPTABLE_DRIFT_SECONDS:
+                print(f"✅ RTC already in sync (Δ {drift}s) — skipping.")
+                return True, "", None
+            print(f"⚠️ Synced today but drift is {drift}s — re-syncing.")
+        else:
+            print("⚠️ Could not read times — running full sync.")
 
-    # 2) If already synced today, run retry logic
-    print("ℹ️ Synchronization already performed today, running retry logic...")
+    # Sync-and-verify loop
     for attempt in range(1, max_attempts + 1):
-        print(f"🔄 Attempt {attempt}/{max_attempts} to synchronize time.")
-        try:
-            # Phase 1: Read current times
-            process, send_command = start_wittypi_process(wittypi_path)
-            send_command("13", 0.5)  # exit immediately to prevent hang
-            stdout, stderr, timed_out = communicate_with_timeout(process)
+        print(f"🔄 Sync attempt {attempt}/{max_attempts}")
 
-            if timed_out:
-                print(f"❌ WittyPi process timed out on attempt {attempt}")
-                time.sleep(5)
-                continue
+        if not _send_sync(wittypi_path):
+            print(f"❌ Sync command timed out on attempt {attempt}")
+            time.sleep(5)
+            continue
 
-            sys_time = rtc_time = None
-            for line in stdout.split("\n"):
-                line = line.strip()
-                sys_match = re.search(r'Your system time is:\s+([0-9-]+ [0-9:]+)', line)
-                rtc_match = re.search(r'Your RTC time is:\s+([0-9-]+ [0-9:]+)', line)
-                if sys_match:
-                    sys_time = datetime.datetime.strptime(sys_match.group(1), '%Y-%m-%d %H:%M:%S')
-                if rtc_match:
-                    rtc_time = datetime.datetime.strptime(rtc_match.group(1), '%Y-%m-%d %H:%M:%S')
+        sys_time, rtc_time = _read_times(wittypi_path)
+        if sys_time is None or rtc_time is None:
+            print(f"❌ Could not parse times after sync on attempt {attempt}")
+            time.sleep(5)
+            continue
 
-            if sys_time and rtc_time:
-                diff = abs((sys_time - rtc_time).total_seconds())
-                print(f"🕒 System time: {sys_time}, RTC time: {rtc_time} (Δ {diff}s)")
-                if diff < 5:
-                    print("✅ Times are already synchronized.")
-                    return True, "", None
-                else:
-                    # Phase 2: Sync needed
-                    print("⚠️ Δ ≥ 5s, sending sync command...")
-                    process2, send_command2 = start_wittypi_process(wittypi_path)
-                    send_command2("3", 5)
-                    send_command2("13", 0.5)
-                    _, _, timed_out2 = communicate_with_timeout(process2)
-                    if timed_out2:
-                        print(f"❌ Sync process timed out on attempt {attempt}")
-            else:
-                print(f"❌ Could not parse time from WittyPi output on attempt {attempt}")
+        drift = abs((sys_time - rtc_time).total_seconds())
+        print(f"🕒 Post-sync: system={sys_time}, RTC={rtc_time} (Δ {drift}s)")
 
-        except Exception as e:
-            print(f"❌ Exception during attempt {attempt}: {e}")
+        if drift < ACCEPTABLE_DRIFT_SECONDS:
+            new_iso = datetime.datetime.now().isoformat()
+            print(f"✅ Sync verified at {new_iso}")
+            return True, "", new_iso
 
-        print("⏳ Waiting 5s before next attempt...")
+        print(f"⚠️ Drift still {drift}s — retrying in 5s.")
         time.sleep(5)
 
-    print("❌ All synchronization attempts failed.")
-    return False, "Time synchronization failed!", None
+    return False, f"Time synchronization failed after {max_attempts} attempts (RTC still off)", None
 
 
 def schedule_deep_sleep(startup_time_str, wittypi_path, max_attempts=5):
