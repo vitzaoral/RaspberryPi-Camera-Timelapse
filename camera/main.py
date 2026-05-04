@@ -15,9 +15,9 @@ default_deep_sleep_interval = 300
 # Hardcoded fallback — keeps working on Pis whose local config.json (gitignored)
 # hasn't been updated to include sys_temperature_url.
 DEFAULT_SYS_TEMPERATURE_URL = "https://sys.zaoral.cz/api/public/outdoor/temperature"
-# Fallback for force-sync Blynk pin — every camera uses V24, no need to add it
+# Fallback for force-sync Blynk pin — every camera uses V23, no need to add it
 # to config.json after `git pull` (configs are gitignored).
-DEFAULT_FORCE_SYNC_PIN = "v24"
+DEFAULT_FORCE_SYNC_PIN = "v23"
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -83,7 +83,7 @@ if not is_connected_to_internet():
 
 last_sync_date = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
 
-# Force-sync button (Blynk V24): when the user toggles it on, ignore the
+# Force-sync button (Blynk V23): when the user toggles it on, ignore the
 # "already synced today" shortcut and run a full sync-and-verify cycle. The
 # pin is reset back to 0 after a successful sync so it doesn't keep firing.
 force_sync_pin = config.get("blynk_camera_force_sync_pin", DEFAULT_FORCE_SYNC_PIN)
