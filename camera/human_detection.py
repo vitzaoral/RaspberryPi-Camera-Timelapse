@@ -36,9 +36,13 @@ MIN_BOX_ASPECT_RATIO = 1.3
 # Set False once tuning is dialed in — the gallery will only show accepted hits.
 DRAW_REJECTED_CANDIDATES = True
 
-# Drawing
-ACCEPTED_COLOR_BGR = (0, 255, 0)     # green
-REJECTED_COLOR_BGR = (0, 0, 255)     # red
+## Drawing — colours communicate certainty: red = filter accepted (high
+# confidence person), yellow = filter rejected this candidate (úl, strom,
+# low confidence). Labels intentionally omitted — confidence + reason are
+# persisted in Cloudinary tags and surfaced in the dashboard, no need to
+# pollute the photo itself.
+ACCEPTED_COLOR_BGR = (0, 0, 255)     # red BGR
+REJECTED_COLOR_BGR = (0, 255, 255)   # yellow BGR
 
 _MODEL_DIR = os.path.dirname(os.path.abspath(__file__))
 _CONFIG_PATH = os.path.join(_MODEL_DIR, "yolo", "yolov4-tiny.cfg")
@@ -190,61 +194,23 @@ def _box_thickness(image_h):
     return max(2, image_h // 400)
 
 
-def _draw_box(image, box, color, label):
+def _draw_box(image, box, color):
+    """Draw a single rectangle, no label. Confidence/reason live in tags."""
     x, y, w, h = box
-    image_h = image.shape[0]
-    thickness = _box_thickness(image_h)
-    font_scale = max(0.6, image_h / 1200)
-    font_thickness = max(1, thickness // 2)
-
+    thickness = _box_thickness(image.shape[0])
     cv2.rectangle(image, (x, y), (x + w, y + h), color, thickness)
-
-    # Label with filled background so it's readable on any backdrop.
-    (label_w, label_h), baseline = cv2.getTextSize(
-        label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness
-    )
-    label_y = max(label_h + 4, y - 4)
-    cv2.rectangle(
-        image,
-        (x, label_y - label_h - baseline - 2),
-        (x + label_w + 6, label_y + 2),
-        color,
-        thickness=cv2.FILLED,
-    )
-    cv2.putText(
-        image,
-        label,
-        (x + 3, label_y - 3),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale,
-        (0, 0, 0),
-        font_thickness,
-        cv2.LINE_AA,
-    )
 
 
 def draw_detections(image, accepted, rejected=None):
-    """Draw accepted detections (green) and optionally rejected candidates
-    (red, with rejection-reason label) for tuning.
+    """Draw accepted detections (red) and optionally rejected candidates
+    (yellow). Color = certainty signal; details live in Cloudinary tags.
     """
     for det in accepted:
-        _draw_box(image, det.box, ACCEPTED_COLOR_BGR, f"Person {det.confidence:.2f}")
+        _draw_box(image, det.box, ACCEPTED_COLOR_BGR)
 
     if DRAW_REJECTED_CANDIDATES and rejected:
         for det in rejected:
-            _draw_box(
-                image,
-                det.box,
-                REJECTED_COLOR_BGR,
-                f"{det.rejected_reason} {det.confidence:.2f}",
-            )
-
-    # Visualize the zone-of-interest cutoff as a faint horizontal line so the
-    # `above_zone` reasoning is obvious in the gallery.
-    if DRAW_REJECTED_CANDIDATES:
-        h, w = image.shape[:2]
-        zone_y = int(h * DETECTION_ZONE_TOP_RATIO)
-        cv2.line(image, (0, zone_y), (w, zone_y), (255, 255, 0), max(1, h // 800))
+            _draw_box(image, det.box, REJECTED_COLOR_BGR)
 
     return image
 
