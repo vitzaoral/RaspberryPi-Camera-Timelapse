@@ -95,16 +95,23 @@ class Detection:
 
 
 def _evaluate_box(box, confidence, image_h, image_w):
-    """Return rejection reason or None if the box passes all filters."""
+    """Return rejection reason or None if the box passes all filters.
+
+    `above_zone` is checked first (priority) so a low-confidence detection
+    in tree foliage gets that label instead of `low_conf` — that lets
+    draw_detections() skip out-of-zone boxes entirely without losing the
+    other reject reasons. Tag-level info (cand_above_zone) is still
+    persisted regardless.
+    """
     x, y, w, h = box
+    if (y + h) < image_h * DETECTION_ZONE_TOP_RATIO:
+        return "above_zone"
     if confidence < PERSON_CONFIDENCE_THRESHOLD:
         return "low_conf"
     if h < image_h * MIN_BOX_HEIGHT_RATIO:
         return "too_small"
     if h / max(w, 1) < MIN_BOX_ASPECT_RATIO:
         return "wrong_aspect"
-    if (y + h) < image_h * DETECTION_ZONE_TOP_RATIO:
-        return "above_zone"
     return None
 
 
@@ -204,12 +211,18 @@ def _draw_box(image, box, color):
 def draw_detections(image, accepted, rejected=None):
     """Draw accepted detections (red) and optionally rejected candidates
     (yellow). Color = certainty signal; details live in Cloudinary tags.
+
+    Above-zone rejects are skipped on purpose — those boxes sit in tree
+    foliage and would clutter the gallery, while their info is still
+    captured in Cloudinary tags (cand_above_zone) for later analysis.
     """
     for det in accepted:
         _draw_box(image, det.box, ACCEPTED_COLOR_BGR)
 
     if DRAW_REJECTED_CANDIDATES and rejected:
         for det in rejected:
+            if det.rejected_reason == "above_zone":
+                continue
             _draw_box(image, det.box, REJECTED_COLOR_BGR)
 
     return image
