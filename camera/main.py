@@ -191,10 +191,12 @@ if use_person_detection:
     person_detected = bool(accepted)
 
     # Draw boxes on the photo so the gallery shows what was detected. While
-    # tuning is active (DRAW_REJECTED_CANDIDATES=True), also draw rejected
-    # candidates in red with the rejection reason — that's our debug surface
-    # since we can't pull logs off the camera in the field.
-    if image is not None and (accepted or (DRAW_REJECTED_CANDIDATES and rejected)):
+    # tuning is active (DRAW_REJECTED_CANDIDATES=True), call draw_detections
+    # unconditionally so the yellow zone-of-interest line is visible on every
+    # frame — that's our reference marker for the `above_zone` filter, and
+    # without it the user has no way to verify where the cutoff sits when no
+    # candidates were found in the frame.
+    if image is not None and (accepted or DRAW_REJECTED_CANDIDATES):
         image = draw_detections(image, accepted, rejected)
         cv2.imwrite(temp_photo_path, image)
 
