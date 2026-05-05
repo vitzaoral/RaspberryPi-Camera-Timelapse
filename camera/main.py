@@ -1,14 +1,24 @@
 import json
+import logging
 import sys
 import os
 from camera import capture_photo, add_text_to_image
+
+# Wire up logging so logger.info() in human_detection.py reaches systemd
+# journal (default level is WARNING, which would silently drop our detection
+# stats). Format mirrors print() output so existing journalctl scrapes still
+# work.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 from blynk import get_blynk_property, get_sys_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time, shutdown_device
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.0.17"
+version = "3.1.0"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
