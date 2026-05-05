@@ -18,7 +18,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.1.3"
+version = "3.1.4"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -205,6 +205,18 @@ if use_person_detection:
         # Cloudinary tags travel out of the camera — these are how the dashboard
         # filters hits and shows the confidence badge in the gallery.
         upload_tags = ["person", f"conf_{int(max_confidence * 100):02d}"]
+
+    # Persist info about rejected candidates (úl, strom, větev, ...) to
+    # Cloudinary tags so we can analyse false-positive sources later without
+    # SSHing into the camera. Tags don't trigger the gallery "Pouze
+    # detekované" filter (that's tags:person), so they're invisible by
+    # default — opt-in for debug / tuning.
+    if rejected:
+        max_rejected_conf = max(d.confidence for d in rejected)
+        upload_tags.append("candidate")
+        upload_tags.append(f"cand_conf_{int(max_rejected_conf * 100):02d}")
+        for reason in sorted({d.rejected_reason for d in rejected}):
+            upload_tags.append(f"cand_{reason}")
 
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
 result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"

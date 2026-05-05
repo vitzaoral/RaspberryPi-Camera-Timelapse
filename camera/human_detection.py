@@ -28,7 +28,7 @@ INPUT_SIZE = (416, 416)              # YOLOv4-tiny native input
 #   above_zone : box ends above this fraction of image height → likely tree
 #   too_small  : box height < this fraction of image height   → noise / shadow
 #   wrong_aspect : height/width below this → not a vertical person silhouette
-DETECTION_ZONE_TOP_RATIO = 0.35
+DETECTION_ZONE_TOP_RATIO = 0.32
 MIN_BOX_HEIGHT_RATIO = 0.08
 MIN_BOX_ASPECT_RATIO = 1.3
 
