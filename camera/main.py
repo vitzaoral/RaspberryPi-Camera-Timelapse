@@ -28,7 +28,12 @@ with open("config.json", "r") as config_file:
 
 use_person_detection = config.get("use_person_detection", False)
 if use_person_detection:
-    from human_detection import detect_and_draw_person
+    import cv2
+    from human_detection import (
+        detect_persons,
+        draw_detections,
+        DRAW_REJECTED_CANDIDATES,
+    )
 
 witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
@@ -167,7 +172,27 @@ if not capture_photo_success:
     handle_deep_sleep(deep_sleep_interval)
 
 # Person detection
-person_detected = detect_and_draw_person(temp_photo_path) if use_person_detection else False
+person_detected = False
+max_confidence = 0.0
+upload_tags = []
+
+if use_person_detection:
+    image, accepted, rejected = detect_persons(temp_photo_path)
+    person_detected = bool(accepted)
+
+    # Draw boxes on the photo so the gallery shows what was detected. While
+    # tuning is active (DRAW_REJECTED_CANDIDATES=True), also draw rejected
+    # candidates in red with the rejection reason — that's our debug surface
+    # since we can't pull logs off the camera in the field.
+    if image is not None and (accepted or (DRAW_REJECTED_CANDIDATES and rejected)):
+        image = draw_detections(image, accepted, rejected)
+        cv2.imwrite(temp_photo_path, image)
+
+    if person_detected:
+        max_confidence = max(d.confidence for d in accepted)
+        # Cloudinary tags travel out of the camera — these are how the dashboard
+        # filters hits and shows the confidence badge in the gallery.
+        upload_tags = ["person", f"conf_{int(max_confidence * 100):02d}"]
 
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
 result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"
@@ -176,7 +201,13 @@ result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{cu
 temperature = get_sys_property(config.get("sys_temperature_url", DEFAULT_SYS_TEMPERATURE_URL))
 text = generate_text(temperature, config["camera_number"])
 add_text_to_image(temp_photo_path, result_photo_path, text)
-secure_url = upload_to_cloudinary(result_photo_path, config["cloudinary_url"], config["cloudinary_upload_preset"], config["camera_number"])
+secure_url = upload_to_cloudinary(
+    result_photo_path,
+    config["cloudinary_url"],
+    config["cloudinary_upload_preset"],
+    config["camera_number"],
+    tags=upload_tags or None,
+)
 
 wifi_signal = get_wifi_signal_strength()
 ip_address = get_ip_address()

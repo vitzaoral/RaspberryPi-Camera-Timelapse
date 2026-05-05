@@ -1,13 +1,20 @@
 import requests
 
-def upload_to_cloudinary(file_path, cloudinary_url, cloudinary_upload_preset, camera_number):
+
+def upload_to_cloudinary(file_path, cloudinary_url, cloudinary_upload_preset, camera_number, tags=None):
+    """Upload a photo to Cloudinary. `tags` is an optional iterable of strings
+    that get attached to the resource — used by the dashboard to filter
+    detection hits and surface confidence in the UI without parsing filenames.
+    """
     try:
         with open(file_path, "rb") as f:
             files = {"file": f}
             data = {
                 "upload_preset": cloudinary_upload_preset,
-                "folder": f"camera_{camera_number}"
+                "folder": f"camera_{camera_number}",
             }
+            if tags:
+                data["tags"] = ",".join(tags)
             response = requests.post(cloudinary_url, files=files, data=data)
         response.raise_for_status()
         response_data = response.json()
