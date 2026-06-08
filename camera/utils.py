@@ -7,6 +7,14 @@ import time
 
 current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
+# WittyPi cuts power ~20-30s after GPIO-4 is pulled (it halts all processes
+# first). A startup armed less than that in the future fires *during* shutdown
+# while power is still on, so WittyPi misses it — and because the schedule
+# format is "%d HH:MM:SS" (no month), a missed alarm rolls to the SAME day NEXT
+# MONTH, leaving the camera dark for weeks. Never arm a startup closer than this
+# safe margin, regardless of the configured interval.
+MIN_STARTUP_MARGIN_SECONDS = 60
+
 def generate_text(temperature, camera_number):
     return f"CAM {camera_number}   {current_time}   {temperature}°C"
 
@@ -101,7 +109,12 @@ def get_next_start_time(deep_sleep_interval):
         (str): Next startup time in format "dd HH:MM:SS".
     """
     now = datetime.now()
-    startup_time = now + timedelta(seconds=int(deep_sleep_interval))
+    interval = int(deep_sleep_interval)
+    if interval < MIN_STARTUP_MARGIN_SECONDS:
+        print(f"⚠️ interval {interval}s below safe margin — clamping to "
+              f"{MIN_STARTUP_MARGIN_SECONDS}s to avoid WittyPi missing the alarm.")
+        interval = MIN_STARTUP_MARGIN_SECONDS
+    startup_time = now + timedelta(seconds=interval)
     return startup_time.strftime("%d %H:%M:%S")
 
 
