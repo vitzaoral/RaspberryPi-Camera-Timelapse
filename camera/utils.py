@@ -46,15 +46,34 @@ def get_current_time():
     current_time = datetime.now().strftime("%H:%M:%S")
     return current_time
 
-def is_connected_to_internet():
-    try:
-        # try ping 8.8.8.8 (Google DNS)
-        subprocess.run(["ping", "-c", "1", "8.8.8.8"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        print("Connected to the internet.")
-        return True
-    except Exception as e:
-        print("Not connected to the internet.")
-        return False
+def is_connected_to_internet(timeout_seconds=60, retry_delay=3):
+    """Check connectivity, retrying until WiFi associates or timeout.
+
+    Cold-boot WiFi on the Pi Zero 2 W takes ~15-25s to associate. A single ping
+    fired right after boot fails before the link is up — which used to send the
+    whole script straight to deep sleep with NO photo and NO Blynk telemetry,
+    and (combined with the short wakeup interval) the camera would go dark. Keep
+    pinging until we get a reply or `timeout_seconds` elapses.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            # ping 8.8.8.8 (Google DNS); -W 2 caps the wait so a down link
+            # fails fast and we loop instead of blocking.
+            subprocess.run(["ping", "-c", "1", "-W", "2", "8.8.8.8"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            print(f"Connected to the internet (attempt {attempt}).")
+            return True
+        except Exception:
+            if time.monotonic() >= deadline:
+                print(f"Not connected to the internet after {timeout_seconds}s "
+                      f"({attempt} attempts).")
+                return False
+            print(f"No internet yet (attempt {attempt}) — waiting {retry_delay}s "
+                  f"for WiFi to associate...")
+            time.sleep(retry_delay)
 
 def is_in_time_interval(encoded_time):
     try:
