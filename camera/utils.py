@@ -46,14 +46,16 @@ def get_current_time():
     current_time = datetime.now().strftime("%H:%M:%S")
     return current_time
 
-def is_connected_to_internet(timeout_seconds=60, retry_delay=3):
+def is_connected_to_internet(timeout_seconds=150, retry_delay=3):
     """Check connectivity, retrying until WiFi associates or timeout.
 
-    Cold-boot WiFi on the Pi Zero 2 W takes ~15-25s to associate. A single ping
-    fired right after boot fails before the link is up — which used to send the
-    whole script straight to deep sleep with NO photo and NO Blynk telemetry,
-    and (combined with the short wakeup interval) the camera would go dark. Keep
-    pinging until we get a reply or `timeout_seconds` elapses.
+    Cold-boot WiFi association is slow here because the AP "OST" is a HIDDEN
+    SSID (scan_ssid=1) — the Pi Zero 2 W has to actively probe for it and that
+    often takes over a minute after boot. A single ping fired right after boot
+    fails before the link is up, which used to send the whole script straight to
+    deep sleep with NO photo and NO Blynk telemetry (the "boots but no photos"
+    symptom). Keep pinging until we get a reply or `timeout_seconds` elapses —
+    150s gives the hidden network ample time to associate and get a DHCP lease.
     """
     deadline = time.monotonic() + timeout_seconds
     attempt = 0
