@@ -46,36 +46,63 @@ def get_current_time():
     current_time = datetime.now().strftime("%H:%M:%S")
     return current_time
 
-def is_connected_to_internet(timeout_seconds=150, retry_delay=3):
-    """Check connectivity, retrying until WiFi associates or timeout.
+def _ping_ok():
+    """One quick ping to 8.8.8.8; -W 2 caps the wait so a dead link fails fast."""
+    try:
+        subprocess.run(["ping", "-c", "1", "-W", "2", "8.8.8.8"],
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return True
+    except Exception:
+        return False
 
-    Cold-boot WiFi association is slow here because the AP "OST" is a HIDDEN
-    SSID (scan_ssid=1) — the Pi Zero 2 W has to actively probe for it and that
-    often takes over a minute after boot. A single ping fired right after boot
-    fails before the link is up, which used to send the whole script straight to
-    deep sleep with NO photo and NO Blynk telemetry (the "boots but no photos"
-    symptom). Keep pinging until we get a reply or `timeout_seconds` elapses —
-    150s gives the hidden network ample time to associate and get a DHCP lease.
+
+def _rekick_wlan0():
+    """Force a fresh ifdown/ifup on wlan0 to recover a stuck cold-boot link."""
+    try:
+        subprocess.run(["ifdown", "wlan0"], timeout=25,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["ifup", "wlan0"], timeout=60,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except Exception as e:
+        print(f"  wlan0 re-kick failed: {e}")
+
+
+def is_connected_to_internet(timeout_seconds=150, retry_delay=5, grace_seconds=25):
+    """Wait for connectivity, actively re-kicking WiFi if it gets stuck.
+
+    The camera cold-boots every cycle, so the brcmfmac chip is power-cycled each
+    time. On a weak-ish signal (~-66 dBm here) the FIRST cold association after
+    power-up sometimes never completes within dhclient's window — wlan0 ends up
+    with no IP and nothing retrying, so the old single-ping check skipped the
+    photo and slept ("boots once, connects; next boot, nothing"). Testing showed
+    a *warm* re-association is fast and 100% reliable (3-12s). So: ping for a
+    short grace period to let the normal boot association finish, and if we're
+    still offline, force an ifdown/ifup every ~30s to actively recover instead of
+    passively waiting on a link that already gave up.
     """
-    deadline = time.monotonic() + timeout_seconds
+    start = time.monotonic()
+    deadline = start + timeout_seconds
     attempt = 0
+    last_kick = 0.0
     while True:
         attempt += 1
-        try:
-            # ping 8.8.8.8 (Google DNS); -W 2 caps the wait so a down link
-            # fails fast and we loop instead of blocking.
-            subprocess.run(["ping", "-c", "1", "-W", "2", "8.8.8.8"],
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        if _ping_ok():
             print(f"Connected to the internet (attempt {attempt}).")
             return True
-        except Exception:
-            if time.monotonic() >= deadline:
-                print(f"Not connected to the internet after {timeout_seconds}s "
-                      f"({attempt} attempts).")
-                return False
-            print(f"No internet yet (attempt {attempt}) — waiting {retry_delay}s "
-                  f"for WiFi to associate...")
-            time.sleep(retry_delay)
+        now = time.monotonic()
+        if now >= deadline:
+            print(f"Not connected to the internet after {timeout_seconds}s "
+                  f"({attempt} attempts).")
+            return False
+        # Let the normal cold-boot association finish first; only force a
+        # re-kick once past the grace window, then at most every 30s.
+        if now - start > grace_seconds and now - last_kick > 30:
+            last_kick = now
+            print(f"Still offline after {int(now - start)}s — re-kicking wlan0...")
+            _rekick_wlan0()
+        else:
+            print(f"No internet yet (attempt {attempt}) — waiting for WiFi...")
+        time.sleep(retry_delay)
 
 def is_in_time_interval(encoded_time):
     try:
