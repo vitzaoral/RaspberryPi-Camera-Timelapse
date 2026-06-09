@@ -18,7 +18,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.2.0"
+version = "3.3.0"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -48,12 +48,15 @@ if use_person_detection:
 witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
 
-def handle_deep_sleep(interval):
-    """Schedule next wakeup, then shut down. On schedule failure, force a fresh
-    RTC sync and retry once — schedule fails almost always trace back to RTC
-    drift, so re-syncing usually fixes it and avoids the device going dark.
+def handle_deep_sleep(interval, startup_time_str=None):
+    """Schedule next wakeup, then shut down. Pass an explicit startup_time_str
+    to wake at a specific moment (e.g. the next working-window start); otherwise
+    it's computed as now+interval. On schedule failure, force a fresh RTC sync
+    and retry once — schedule fails almost always trace back to RTC drift, so
+    re-syncing usually fixes it and avoids the device going dark.
     """
-    startup_time_str = get_next_start_time(interval)
+    if startup_time_str is None:
+        startup_time_str = get_next_start_time(interval)
     success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
 
     if not success:
@@ -136,35 +139,26 @@ try:
 except (ValueError, TypeError):
     print("Error: Invalid run_update value from Blynk.")
 
-# Check working time
+# Check working time. We no longer bail out early when outside the window —
+# the camera still takes & uploads one photo this cycle (e.g. the boundary
+# frame just after 20:00, or any stray wake), and only the *sleep target*
+# differs: out-of-hours wakes sleep until the next working-window start instead
+# of the normal interval. Decision is applied after capture/upload below.
 is_within, start_time, time_range = is_in_time_interval(encoded_time)
-if not is_within:
-    print("Time is over, bye")
+out_of_hours = not is_within
+if out_of_hours:
+    print("Outside working hours — taking one photo, then sleeping until the window reopens.")
 
-    if start_time is None:
-        handle_deep_sleep(default_deep_sleep_interval)
 
-    startup_time_str = get_next_start_time_from_start(start_time)
-    if startup_time_str is None:
-        handle_deep_sleep(default_deep_sleep_interval)
+def next_wake_for_cycle():
+    """(interval, explicit_startup_time) for handle_deep_sleep at the end of a
+    cycle. Out-of-hours → wake at the next working-window start; in-hours →
+    the normal now+interval (explicit None)."""
+    if out_of_hours:
+        morning = get_next_start_time_from_start(start_time) if start_time is not None else None
+        return default_deep_sleep_interval, morning
+    return deep_sleep_interval, None
 
-    updates = {
-        config["blynk_camera_pin_current_time"]: get_current_time(),
-        config["blynk_camera_pin_setted_working_time"]: time_range,
-        config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
-        config["blynk_camera_version_pin"]: version,
-        config["blynk_camera_next_start_time_pin"]: startup_time_str,
-        config["blynk_camera_status_pin"]: "Time is over, going to sleep",
-        config["blynk_camera_error_pin"]: ""
-    }
-    update_blynk_batch(updates, config["blynk_camera_auth"])
-
-    success, error = schedule_deep_sleep(startup_time_str, witty_pi_path)
-    if not success:
-        update_blynk_pin_value(error, blynk_camera_auth, config["blynk_camera_error_pin"])
-
-    shutdown_device()
-    sys.exit(0)
 
 # Capture photo
 temp_photo_path = "/tmp/photo.jpg"
@@ -179,7 +173,8 @@ if not capture_photo_success:
         interval=deep_sleep_interval,
         time_range_val=time_range,
     )
-    handle_deep_sleep(deep_sleep_interval)
+    fail_interval, fail_startup = next_wake_for_cycle()
+    handle_deep_sleep(fail_interval, startup_time_str=fail_startup)
 
 # Person detection
 person_detected = False
@@ -242,8 +237,9 @@ if secure_url:
 # Delete the photo
 delete_photo(result_photo_path)
 
-# Update Blynk status
-startup_time_str = get_next_start_time(deep_sleep_interval)
+# Decide the next wakeup (used both for the dashboard and the actual sleep).
+cycle_interval, cycle_startup = next_wake_for_cycle()
+startup_time_str = cycle_startup or get_next_start_time(cycle_interval)
 updates = {
     config["blynk_camera_human_detected_pin"]: 1 if person_detected else 0,
     config["blynk_camera_wifi_signal_pin"]: wifi_signal if wifi_signal else None,
@@ -253,15 +249,17 @@ updates = {
     config["blynk_camera_deep_sleep_interval_setted_pin"]: deep_sleep_interval,
     config["blynk_camera_version_pin"]: version,
     config["blynk_camera_next_start_time_pin"]: startup_time_str,
-    config["blynk_camera_status_pin"]: "OK",
+    config["blynk_camera_status_pin"]: "OK (mimo pracovní dobu)" if out_of_hours else "OK",
     config["blynk_camera_error_pin"]: ""
 }
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
 
-# Handle script restart or deep sleep
-if person_detected:
+# Handle script restart or deep sleep. Person-triggered continuous monitoring
+# only makes sense within working hours; outside the window we always take the
+# single photo above and then sleep until the window reopens.
+if person_detected and not out_of_hours:
     print("Person detected! Restarting script")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 else:
-    handle_deep_sleep(deep_sleep_interval)
+    handle_deep_sleep(cycle_interval, startup_time_str=cycle_startup)
