@@ -2,8 +2,8 @@
 
 YOLO trained on COCO over-fires on outdoor static structures (tree branches,
 beehives, vertical posts). This module post-filters raw detections by
-confidence, box size, aspect ratio, and a vertical zone-of-interest before
-accepting them as a real person.
+confidence, box size, aspect ratio, a vertical zone-of-interest, and static
+hive zones (STATIC_ZONES) before accepting them as a real person.
 
 Tunables are constants below — change = OTA push of this file. Values picked
 for Camera 1 (strom): tree foliage in upper part of frame, hives + path in
@@ -31,6 +31,22 @@ INPUT_SIZE = (416, 416)              # YOLOv4-tiny native input
 DETECTION_ZONE_TOP_RATIO = 0.32
 MIN_BOX_HEIGHT_RATIO = 0.08
 MIN_BOX_ASPECT_RATIO = 1.3
+
+# Static-object suppression (Camera 1 / strom): the sun-lit solitary hives fire
+# as a person daily around 16:45-18:00, with confidence up to 0.96 — no
+# confidence threshold can fix that. Hives don't move, people do: a detection
+# whose box sits inside a known hive zone AND has hive-like size and shape is
+# rejected as "static". A beekeeper standing AT the hive still passes — their
+# box is ~2x the hive area (measured on DETECTED_08.07.2026_19_07, conf 0.85).
+# Zones are (x1, y1, x2, y2) normalized to image size, with margin for camera
+# drift — the framing shifts a few % between remounts (02.07 vs 04.08 photos).
+STATIC_ZONES = [
+    (0.13, 0.45, 0.34, 0.79),   # osamocený úl vlevo (2 nástavky) — hlavní zdroj FP
+    (0.03, 0.50, 0.17, 0.76),   # malý úl u levého okraje
+]
+STATIC_CONTAINMENT = 0.6        # min fraction of the det box inside a zone
+STATIC_MAX_AREA_RATIO = 0.030   # hive box is ~0.020 of frame; person-at-hive ~0.040
+STATIC_MAX_ASPECT = 2.2         # hive h/w ~1.9; slim standing person ~3.0
 
 # Debug visualization: draw rejected candidates as red boxes with reason label.
 # Set False once tuning is dialed in — the gallery will only show accepted hits.
@@ -84,7 +100,8 @@ class Detection:
 
     `box` is (x, y, w, h) in pixel coordinates of the input image.
     `rejected_reason` is None for accepted detections; one of
-    "low_conf" / "above_zone" / "too_small" / "wrong_aspect" otherwise.
+    "low_conf" / "above_zone" / "static" / "too_small" / "wrong_aspect"
+    otherwise.
     """
     box: tuple
     confidence: float
@@ -94,6 +111,24 @@ class Detection:
 # ---- Detection ---------------------------------------------------------------
 
 
+def _is_static_object(box, image_h, image_w):
+    """True when the box matches a known static object (hive) — inside one of
+    STATIC_ZONES with hive-like size and shape. The area and aspect caps are
+    what keep a person standing at the hive detectable: their box is bigger
+    (area) or slimmer (aspect) than the hive silhouette."""
+    x, y, w, h = box
+    if (w * h) / (image_w * image_h) > STATIC_MAX_AREA_RATIO:
+        return False
+    if h / max(w, 1) > STATIC_MAX_ASPECT:
+        return False
+    for zx1, zy1, zx2, zy2 in STATIC_ZONES:
+        ix = max(0.0, min(x + w, zx2 * image_w) - max(x, zx1 * image_w))
+        iy = max(0.0, min(y + h, zy2 * image_h) - max(y, zy1 * image_h))
+        if ix * iy >= STATIC_CONTAINMENT * w * h:
+            return True
+    return False
+
+
 def _evaluate_box(box, confidence, image_h, image_w):
     """Return rejection reason or None if the box passes all filters.
 
@@ -101,11 +136,14 @@ def _evaluate_box(box, confidence, image_h, image_w):
     in tree foliage gets that label instead of `low_conf` — that lets
     draw_detections() skip out-of-zone boxes entirely without losing the
     other reject reasons. Tag-level info (cand_above_zone) is still
-    persisted regardless.
+    persisted regardless. `static` comes before `low_conf` for the same
+    reason: a hive at conf 0.5 should be labeled as the hive, not as noise.
     """
     x, y, w, h = box
     if (y + h) < image_h * DETECTION_ZONE_TOP_RATIO:
         return "above_zone"
+    if _is_static_object(box, image_h, image_w):
+        return "static"
     if confidence < PERSON_CONFIDENCE_THRESHOLD:
         return "low_conf"
     if h < image_h * MIN_BOX_HEIGHT_RATIO:
