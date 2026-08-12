@@ -26,7 +26,7 @@ from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_c
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.5.0"
+version = "3.5.1"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -72,6 +72,11 @@ def make_cycle_log(status, error="", person=False):
         "status": status,
         "error": error,
         "warm_start": warm_start,
+        # monotonic on Linux counts from boot, so the raw script_start value is
+        # the uptime when Python got past stdlib imports ≈ when systemd started
+        # the service. boot_uptime − svc_start = time spent importing libraries
+        # from the SD card (the prime suspect for slow cycles).
+        "svc_start_s": round(script_start, 1),
         "boot_uptime_s": boot_uptime,
         "internet_wait_s": timings.get("internet_wait_s"),
         "internet_attempts": timings.get("internet_attempts"),
