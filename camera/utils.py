@@ -79,25 +79,38 @@ def is_connected_to_internet(timeout_seconds=150, retry_delay=5, grace_seconds=2
     short grace period to let the normal boot association finish, and if we're
     still offline, force an ifdown/ifup every ~30s to actively recover instead of
     passively waiting on a link that already gave up.
+
+    Returns (connected, stats) where stats feeds the cycle telemetry:
+    {"waited_s": float, "attempts": int, "rekicks": int}.
     """
     start = time.monotonic()
     deadline = start + timeout_seconds
     attempt = 0
+    rekicks = 0
     last_kick = 0.0
+
+    def stats():
+        return {
+            "waited_s": round(time.monotonic() - start, 1),
+            "attempts": attempt,
+            "rekicks": rekicks,
+        }
+
     while True:
         attempt += 1
         if _ping_ok():
             print(f"Connected to the internet (attempt {attempt}).")
-            return True
+            return True, stats()
         now = time.monotonic()
         if now >= deadline:
             print(f"Not connected to the internet after {timeout_seconds}s "
                   f"({attempt} attempts).")
-            return False
+            return False, stats()
         # Let the normal cold-boot association finish first; only force a
         # re-kick once past the grace window, then at most every 30s.
         if now - start > grace_seconds and now - last_kick > 30:
             last_kick = now
+            rekicks += 1
             print(f"Still offline after {int(now - start)}s — re-kicking wlan0...")
             _rekick_wlan0()
         else:

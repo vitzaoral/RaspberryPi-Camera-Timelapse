@@ -2,3 +2,4 @@ config.json
 .DS_Store
 configs.txt
 .idea/
+camera/pending_telemetry.json

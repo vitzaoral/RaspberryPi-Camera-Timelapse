@@ -27,6 +27,7 @@ All application code lives in `camera/`. The system runs as a systemd service (`
 - `camera.py` — Photo capture (`rpicam-still` subprocess), text overlay with PIL
 - `blynk.py` — Blynk REST API (get/set pin values, batch updates)
 - `cloudinary.py` — Image upload to Cloudinary via REST API
+- `telemetry.py` — Per-cycle phase timings POSTed to beeSys (`/api/public/cameras/cycle-log`, auth via Blynk token); offline cycles queue to `pending_telemetry.json` on SD and flush next online cycle
 - `human_detection.py` — YOLOv4-tiny person detection via OpenCV DNN (conditionally imported)
 - `witty_sheduler.py` — RTC time sync and deep sleep scheduling via WittyPi shell scripts
 - `utils.py` — Text generation, WiFi/IP info, time interval parsing, GPIO shutdown, file cleanup

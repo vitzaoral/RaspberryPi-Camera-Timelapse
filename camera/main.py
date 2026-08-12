@@ -2,6 +2,13 @@ import json
 import logging
 import sys
 import os
+import time
+from datetime import datetime
+
+# Captured before any heavy import/work — everything the script does counts
+# into total_s of the cycle telemetry.
+script_start = time.monotonic()
+
 from camera import capture_photo, add_text_to_image
 
 # Wire up logging so logger.info() in human_detection.py reaches systemd
@@ -14,11 +21,12 @@ logging.basicConfig(
 )
 from blynk import get_blynk_property, get_sys_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
+from telemetry import get_boot_uptime, get_throttled, queue_cycle_log, send_cycle_logs
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time, shutdown_device
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.4.0"
+version = "3.5.0"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -47,6 +55,37 @@ if use_person_detection:
 
 witty_pi_path = config["witty_pi_path"]
 blynk_camera_auth = config["blynk_camera_auth"]
+
+# --- Cycle telemetry -----------------------------------------------------
+# Phase timings collected along the way and POSTed to beeSys at the end of
+# the cycle (or queued locally when there's no internet). Diagnoses slow
+# cycles without SSH access to the Pi.
+timings = {}
+warm_start = "--warm" in sys.argv  # execv restart po detekci — bez bootu a WiFi asociace
+boot_uptime = get_boot_uptime()
+
+
+def make_cycle_log(status, error="", person=False):
+    return {
+        "measured_at": datetime.now().isoformat(),
+        "version": version,
+        "status": status,
+        "error": error,
+        "warm_start": warm_start,
+        "boot_uptime_s": boot_uptime,
+        "internet_wait_s": timings.get("internet_wait_s"),
+        "internet_attempts": timings.get("internet_attempts"),
+        "wifi_rekicks": timings.get("wifi_rekicks"),
+        "rtc_sync_s": timings.get("rtc_sync_s"),
+        "blynk_fetch_s": timings.get("blynk_fetch_s"),
+        "capture_s": timings.get("capture_s"),
+        "detection_s": timings.get("detection_s"),
+        "upload_s": timings.get("upload_s"),
+        "total_s": round(time.monotonic() - script_start, 1),
+        "wifi_dbm": get_wifi_signal_strength(),
+        "throttled": get_throttled(),
+        "person_detected": person,
+    }
 
 def handle_deep_sleep(interval, startup_time_str=None):
     """Schedule next wakeup, then shut down. Pass an explicit startup_time_str
@@ -95,10 +134,19 @@ def push_telemetry(status, error, interval, time_range_val=""):
     update_blynk_batch(updates, blynk_camera_auth)
 
 # Check internet connection
-if not is_connected_to_internet():
+connected, net_stats = is_connected_to_internet()
+timings["internet_wait_s"] = net_stats["waited_s"]
+timings["internet_attempts"] = net_stats["attempts"]
+timings["wifi_rekicks"] = net_stats["rekicks"]
+if not connected:
     print("No internet connection. Exiting.")
+    # Can't POST without internet — queue to SD, flushed by the next
+    # successful cycle. These offline cycles are exactly the ones we need
+    # to see in the diagnostics.
+    queue_cycle_log(make_cycle_log(status="no_internet"))
     handle_deep_sleep(default_deep_sleep_interval)
 
+settings_fetch_start = time.monotonic()
 last_sync_date = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
 
 # Force-sync button (Blynk V23): when the user toggles it on, ignore the
@@ -113,7 +161,9 @@ except (ValueError, TypeError):
 if force_sync:
     print("🔧 Force sync requested via Blynk pin.")
 
+sync_start = time.monotonic()
 sync_success, sync_message, new_sync_iso = sync_time(witty_pi_path, last_sync_date, force=force_sync)
+timings["rtc_sync_s"] = round(time.monotonic() - sync_start, 1)
 
 if new_sync_iso:
     update_blynk_pin_value(new_sync_iso, blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
@@ -129,8 +179,15 @@ encoded_time = get_blynk_property(blynk_camera_auth, config["blynk_camera_pin_wo
 deep_sleep_interval = get_blynk_property(blynk_camera_auth, config["blynk_camera_deep_sleep_interval_pin"])
 run_update = get_blynk_property(blynk_camera_auth, config["blynk_camera_run_update_pin"])
 
+# Everything since settings_fetch_start minus the RTC sync = time spent on
+# Blynk round-trips (property reads/writes around sync + the settings block).
+timings["blynk_fetch_s"] = round(
+    time.monotonic() - settings_fetch_start - timings["rtc_sync_s"], 1
+)
+
 if None in (encoded_time, deep_sleep_interval, run_update):
     print("Error: One or more Blynk properties could not be retrieved. Exiting.")
+    send_cycle_logs(config, make_cycle_log(status="blynk_fail"))
     handle_deep_sleep(default_deep_sleep_interval)
 
 try:
@@ -162,7 +219,9 @@ def next_wake_for_cycle():
 
 # Capture photo
 temp_photo_path = "/tmp/photo.jpg"
+capture_start = time.monotonic()
 capture_photo_success, error_message = capture_photo(temp_photo_path, config["use_tuning_file"])
+timings["capture_s"] = round(time.monotonic() - capture_start, 1)
 if not capture_photo_success:
     # Camera hardware is dead — still push the rest of the telemetry so the
     # dashboard shows fresh time/wifi/ip/version, not stale values from the
@@ -173,6 +232,9 @@ if not capture_photo_success:
         interval=deep_sleep_interval,
         time_range_val=time_range,
     )
+    send_cycle_logs(config, make_cycle_log(
+        status="camera_fail", error=(error_message or "")[:500]
+    ))
     fail_interval, fail_startup = next_wake_for_cycle()
     handle_deep_sleep(fail_interval, startup_time_str=fail_startup)
 
@@ -181,6 +243,7 @@ person_detected = False
 max_confidence = 0.0
 upload_tags = []
 
+detection_start = time.monotonic()
 if use_person_detection:
     image, accepted, rejected = detect_persons(temp_photo_path)
     person_detected = bool(accepted)
@@ -213,6 +276,9 @@ if use_person_detection:
         for reason in sorted({d.rejected_reason for d in rejected}):
             upload_tags.append(f"cand_{reason}")
 
+if use_person_detection:
+    timings["detection_s"] = round(time.monotonic() - detection_start, 1)
+
 deep_sleep_interval = sleep_interval_person_detected if person_detected else deep_sleep_interval
 result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{current_time}.jpg"
 
@@ -220,6 +286,7 @@ result_photo_path = f"DETECTED_{current_time}.jpg" if person_detected else f"{cu
 temperature = get_sys_property(config.get("sys_temperature_url", DEFAULT_SYS_TEMPERATURE_URL))
 text = generate_text(temperature, config["camera_number"])
 add_text_to_image(temp_photo_path, result_photo_path, text)
+upload_start = time.monotonic()
 secure_url = upload_to_cloudinary(
     result_photo_path,
     config["cloudinary_url"],
@@ -227,6 +294,7 @@ secure_url = upload_to_cloudinary(
     config["camera_number"],
     tags=upload_tags or None,
 )
+timings["upload_s"] = round(time.monotonic() - upload_start, 1)
 
 wifi_signal = get_wifi_signal_strength()
 ip_address = get_ip_address()
@@ -255,11 +323,21 @@ updates = {
 updates = {pin: value for pin, value in updates.items() if value is not None}
 update_blynk_batch(updates, config["blynk_camera_auth"])
 
+send_cycle_logs(config, make_cycle_log(
+    status="OK (mimo pracovní dobu)" if out_of_hours else "OK",
+    person=person_detected,
+))
+
 # Handle script restart or deep sleep. Person-triggered continuous monitoring
 # only makes sense within working hours; outside the window we always take the
 # single photo above and then sleep until the window reopens.
 if person_detected and not out_of_hours:
     print("Person detected! Restarting script")
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    # --warm marks the next run as an execv restart (no boot, no WiFi
+    # association) so its telemetry isn't mixed into cold-cycle stats.
+    argv = [sys.executable] + sys.argv
+    if "--warm" not in argv:
+        argv.append("--warm")
+    os.execv(sys.executable, argv)
 else:
     handle_deep_sleep(cycle_interval, startup_time_str=cycle_startup)
