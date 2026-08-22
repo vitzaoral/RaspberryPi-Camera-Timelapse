@@ -21,12 +21,12 @@ logging.basicConfig(
 )
 from blynk import get_blynk_property, get_sys_property, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from cloudinary import upload_to_cloudinary
-from telemetry import get_boot_uptime, get_throttled, queue_cycle_log, send_cycle_logs
+from telemetry import get_boot_uptime, get_input_voltage, get_throttled, queue_cycle_log, send_cycle_logs
 from utils import generate_text, get_wifi_signal_strength, get_ip_address, get_current_time, is_connected_to_internet, get_next_start_time_from_start, is_in_time_interval, current_time, delete_photo, get_next_start_time, shutdown_device
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.5.1"
+version = "3.5.2"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 
@@ -89,6 +89,9 @@ def make_cycle_log(status, error="", person=False):
         "total_s": round(time.monotonic() - script_start, 1),
         "wifi_dbm": get_wifi_signal_strength(),
         "throttled": get_throttled(),
+        # None na Witty Pi 4 Mini (nemá Vin ADC); plný Witty Pi 4 / L3V7 posílá
+        # reálné vstupní napětí — na bateriových kamerách ukazuje stav baterie.
+        "vin_v": get_input_voltage(witty_pi_path),
         "person_detected": person,
     }
 

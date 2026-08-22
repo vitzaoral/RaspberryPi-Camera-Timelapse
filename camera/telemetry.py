@@ -49,6 +49,27 @@ def get_throttled():
         return ""
 
 
+def get_input_voltage(wittypi_path="/root/wittypi"):
+    """WittyPi input voltage in volts, or None when the board can't measure it.
+
+    Sources the WittyPi utilities in a bash subshell — the same I2C access the
+    WittyPi scripts use, so no extra Python I2C dependency. Witty Pi 4 Mini has
+    no Vin ADC and reads ~0.2 V of noise; anything below 2 V is treated as
+    "not supported" so only boards with a real measurement (Witty Pi 4 /
+    L3V7 battery models) report a value.
+    """
+    try:
+        out = subprocess.run(
+            ["bash", "-c",
+             f"cd {wittypi_path} && . ./utilities.sh >/dev/null 2>&1 && get_input_voltage"],
+            capture_output=True, text=True, timeout=10,
+        )
+        vin = round(float(out.stdout.strip()), 2)
+        return vin if vin >= 2.0 else None
+    except Exception:
+        return None
+
+
 def _load_pending():
     try:
         with open(PENDING_PATH) as f:

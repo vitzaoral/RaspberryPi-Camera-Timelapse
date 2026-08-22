@@ -144,8 +144,15 @@ def is_in_time_interval(encoded_time):
         
         now = datetime.now()
         current_seconds = timedelta(hours=now.hour, minutes=now.minute, seconds=now.second)
-        
-        is_within_interval = start_time <= current_seconds <= end_time
+
+        # Grace window: wakes are scheduled from the *previous* day's window
+        # start, and a sunrise-tracking window moves ~1-2 min later each day,
+        # so the camera can wake just before today's start. Without the grace
+        # such a wake counts as out-of-hours, the cycle crosses the boundary
+        # and get_next_start_time_from_start rolls the next start a whole day
+        # forward - the camera then skips every day while sunrise advances.
+        grace_before_start = timedelta(minutes=5)
+        is_within_interval = (start_time - grace_before_start) <= current_seconds <= end_time
         return is_within_interval, start_time, f"{start_time_str}-{end_time_str}"
     except Exception as e:
         print(f"Error decoding time interval: {e}")
