@@ -95,7 +95,9 @@ def queue_cycle_log(log):
 def send_cycle_logs(config, log):
     """POST the current log plus any queued offline ones; queue all on failure.
 
-    Never raises — telemetry must not break the photo cycle.
+    Never raises — telemetry must not break the photo cycle. Returns the
+    Response on success (its Date header doubles as a clock reference at the
+    end of the cycle) or None.
     """
     logs = (_load_pending() + [log])[-MAX_PENDING:]
     payload = {
@@ -110,6 +112,8 @@ def send_cycle_logs(config, log):
         if os.path.exists(PENDING_PATH):
             os.remove(PENDING_PATH)
         print(f"Telemetry sent ({len(logs)} log(s)).")
+        return response
     except Exception as e:
         print(f"Failed to send telemetry, queueing: {e}")
         _save_pending(logs)
+        return None

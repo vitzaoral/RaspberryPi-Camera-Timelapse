@@ -6,3 +6,4 @@ camera/pending_telemetry.json
 camera/settings_cache.json
 camera/settings_cache.json.tmp
 __pycache__/
+camera/clock_note.txt

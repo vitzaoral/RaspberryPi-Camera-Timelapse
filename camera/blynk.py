@@ -79,10 +79,10 @@ def get_sys_response(url):
     the text and the headers — the Date header doubles as our clock
     reference) or None when unreachable."""
     def fetch():
-        response = session.get(url, timeout=(5, 10))
+        response = session.get(url, timeout=TIMEOUT)
         response.raise_for_status()
         return response
-    return _retrying("sys get", 2, fetch)
+    return _retrying("sys get", GET_ATTEMPTS, fetch)
 
 
 def get_sys_property(url):

@@ -8,6 +8,7 @@ time reference — the same trick Witty Pi's own net_to_system uses. When the
 system clock is off by more than CLOCK_FIX_THRESHOLD_S it is set from the
 header and written to the RTC right away.
 """
+import os
 import subprocess
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -15,6 +16,33 @@ from email.utils import parsedate_to_datetime
 from witty_sheduler import ACCEPTABLE_DRIFT_SECONDS, read_times
 
 CLOCK_FIX_THRESHOLD_S = 60
+
+# A clock fix made at the very end of a cycle (from the telemetry POST, after
+# this cycle's log was already sent) is remembered here and reported with the
+# next cycle's log so it never goes unnoticed.
+CARRY_NOTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clock_note.txt")
+
+
+def stash_note(note):
+    try:
+        with open(CARRY_NOTE_PATH, "w") as f:
+            f.write(note)
+    except Exception as e:
+        print(f"Could not stash clock note: {e}")
+
+
+def pop_stashed_note():
+    """Note left by the previous cycle (empty string if none); consumed."""
+    try:
+        with open(CARRY_NOTE_PATH) as f:
+            note = f.read().strip()
+        os.remove(CARRY_NOTE_PATH)
+        return note
+    except FileNotFoundError:
+        return ""
+    except Exception as e:
+        print(f"Could not read stashed clock note: {e}")
+        return ""
 
 
 def clock_offset_from_response(response):

@@ -21,7 +21,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 from blynk import failure_notes, get_blynk_properties, get_sys_response, update_blynk_url, update_blynk_batch, update_blynk_pin_value
-from clock import CLOCK_FIX_THRESHOLD_S, clock_offset_from_response, fix_system_clock, format_offset
+from clock import CLOCK_FIX_THRESHOLD_S, clock_offset_from_response, fix_system_clock, format_offset, pop_stashed_note, stash_note
 import cloudinary
 from cloudinary import upload_to_cloudinary
 from settings_cache import load_cached_settings, save_cached_settings
@@ -46,7 +46,7 @@ from utils import (
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.6.3"
+version = "3.6.4"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 TEMP_PHOTO_PATH = "/tmp/photo.jpg"
@@ -289,7 +289,7 @@ def run():
 
     clock_offset = clock_offset_from_response(sys_response)
     clock_fixed = False
-    clock_note = ""
+    clock_note = pop_stashed_note()
     if clock_offset is not None and abs(clock_offset) > CLOCK_FIX_THRESHOLD_S:
         print(f"⏰ System clock is off by {format_offset(clock_offset)} vs beeSys — fixing.")
         clock_fixed, fix_error = fix_system_clock(clock_offset, witty_pi_path)
@@ -461,7 +461,22 @@ def run():
     diagnostics = "; ".join(net_notes) if problems else ""
     error_text = "; ".join(part for part in (clock_note, diagnostics) if part)
 
-    send_cycle_logs(config, make_cycle_log(status=status, error=error_text, person=person_detected))
+    telemetry_response = send_cycle_logs(config, make_cycle_log(status=status, error=error_text, person=person_detected))
+
+    # Second chance for the clock: when the beeSys GET at the start failed but
+    # the telemetry POST got through, its Date header still tells us whether
+    # the clock is off. Fix it now so the next cycle (and its photo name) is
+    # right; the note is reported with the next cycle's log.
+    if clock_offset is None:
+        late_offset = clock_offset_from_response(telemetry_response)
+        if late_offset is not None and abs(late_offset) > CLOCK_FIX_THRESHOLD_S:
+            print(f"⏰ Clock off by {format_offset(late_offset)} (seen on telemetry POST) — fixing for the next cycle.")
+            ok, fix_error = fix_system_clock(late_offset, witty_pi_path)
+            if ok:
+                update_blynk_pin_value(datetime.now().isoformat(), blynk_camera_auth, config["blynk_camera_pin_last_sync_date"])
+                stash_note(f"Hodiny opraveny o {format_offset(late_offset)} na konci minulého cyklu")
+            else:
+                stash_note(f"Hodiny mimo o {format_offset(late_offset)}, oprava na konci minulého cyklu selhala: {fix_error}")
 
     # Person-triggered continuous monitoring only makes sense within working
     # hours; outside the window we always upload the single photo above and
