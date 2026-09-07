@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
@@ -48,3 +49,8 @@ def add_text_to_image(input_path, output_path, text):
         print(f"Photo with text saved to {output_path}")
     except Exception as e:
         print(f"An error occurred while processing the image: {e}")
+        # A photo without the overlay still beats no photo — give the upload a file.
+        try:
+            shutil.copyfile(input_path, output_path)
+        except Exception as copy_error:
+            print(f"Fallback copy failed: {copy_error}")

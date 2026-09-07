@@ -15,12 +15,14 @@ def upload_to_cloudinary(file_path, cloudinary_url, cloudinary_upload_preset, ca
             }
             if tags:
                 data["tags"] = ",".join(tags)
-            response = requests.post(cloudinary_url, files=files, data=data)
+            # A stalled upload on a lossy link must not keep the camera awake
+            # (and the battery draining) indefinitely.
+            response = requests.post(cloudinary_url, files=files, data=data, timeout=(10, 120))
         response.raise_for_status()
         response_data = response.json()
         image_url = response_data.get("secure_url", "No URL returned")
         print(f"Image uploaded successfully. URL: {image_url}")
         return image_url
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error uploading to Cloudinary: {e}")
         return None

@@ -82,6 +82,11 @@ def _read_times(wittypi_path):
     return sys_time, rtc_time
 
 
+def read_times(wittypi_path):
+    """Public alias — (system_time, rtc_time) from the wittyPi.sh banner."""
+    return _read_times(wittypi_path)
+
+
 def _send_sync(wittypi_path):
     """
     Send the wittyPi.sh "synchronize time" command (menu item 3) and exit.

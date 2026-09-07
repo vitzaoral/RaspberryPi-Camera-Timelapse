@@ -12,7 +12,7 @@ import json
 import os
 import subprocess
 
-import requests
+from net import session
 
 # Hardcoded fallback — keeps working on Pis whose local config.json (gitignored)
 # doesn't include sys_telemetry_url.
@@ -105,7 +105,7 @@ def send_cycle_logs(config, log):
     }
     url = config.get("sys_telemetry_url", DEFAULT_SYS_TELEMETRY_URL)
     try:
-        response = requests.post(url, json=payload, timeout=15)
+        response = session.post(url, json=payload, timeout=(5, 15))
         response.raise_for_status()
         if os.path.exists(PENDING_PATH):
             os.remove(PENDING_PATH)

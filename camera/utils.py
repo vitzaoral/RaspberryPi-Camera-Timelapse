@@ -5,8 +5,6 @@ import os
 import sys
 import time
 
-current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
 # WittyPi cuts power ~20-30s after GPIO-4 is pulled (it halts all processes
 # first). A startup armed less than that in the future fires *during* shutdown
 # while power is still on, so WittyPi misses it — and because the schedule
@@ -15,8 +13,37 @@ current_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 # safe margin, regardless of the configured interval.
 MIN_STARTUP_MARGIN_SECONDS = 60
 
-def generate_text(temperature, camera_number):
-    return f"CAM {camera_number}   {current_time}   {temperature}°C"
+def format_photo_time(when=None):
+    """Timestamp used in the photo name and overlay. Pass the capture moment
+    explicitly — the photo is taken before the clock check, so the name must
+    be derived after a possible clock fix, not at import time."""
+    return (when or datetime.now()).strftime("%d.%m.%Y %H:%M:%S")
+
+
+def generate_text(temperature, camera_number, when=None):
+    shown = temperature if temperature not in (None, "") else "?"
+    return f"CAM {camera_number}   {format_photo_time(when)}   {shown}°C"
+
+
+def disable_wifi_power_save(interface="wlan0"):
+    """Turn off 802.11 power saving for this cycle.
+
+    brcmfmac's power save on a marginal link adds latency and drops: the
+    radio naps between beacons and the AP has to buffer our traffic. The
+    camera is awake for under a minute, so keeping the radio fully on costs
+    nothing measurable. The setting resets with the next boot.
+    """
+    for cmd in (["iw", "dev", interface, "set", "power_save", "off"],
+                ["iwconfig", interface, "power", "off"]):
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        except Exception:
+            continue
+        if result.returncode == 0:
+            print(f"WiFi power save off ({cmd[0]}).")
+            return True
+    print("WiFi power save: could not change (iw/iwconfig unavailable).")
+    return False
 
 def get_wifi_signal_strength():
     try:

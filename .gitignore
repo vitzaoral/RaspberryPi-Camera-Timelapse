@@ -3,3 +3,6 @@ config.json
 configs.txt
 .idea/
 camera/pending_telemetry.json
+camera/settings_cache.json
+camera/settings_cache.json.tmp
+__pycache__/
