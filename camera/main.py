@@ -46,7 +46,7 @@ from utils import (
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.6.2"
+version = "3.6.3"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 TEMP_PHOTO_PATH = "/tmp/photo.jpg"

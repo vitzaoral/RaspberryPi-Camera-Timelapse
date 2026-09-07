@@ -2,7 +2,15 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from blynk import update_blynk_pin_value
+
+FETCH_ATTEMPTS = 2
+FETCH_RETRY_DELAY_S = 5
+# Abort a fetch that crawls below 1 kB/s for 20 s instead of sitting on the
+# 60 s subprocess timeout — on the marginal apiary link a stalled TLS
+# handshake is the common failure and a fresh attempt usually gets through.
+GIT_LOW_SPEED = ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=20"]
 
 
 def _run(cmd, cwd=None):
@@ -52,6 +60,10 @@ def check_and_update_repository(config):
     Uses --hard reset instead of `git pull` so local edits on the Pi (common
     source of silent failures) don't block the update. Errors are written to
     the Blynk error pin so they're visible without SSH access.
+
+    The trigger flag is cleared up front so a broken update can't loop, but a
+    fetch that fails on the network re-arms it: the request must survive a
+    bad-link cycle, otherwise an update silently never happens.
     """
     repo_path = config["repo_path"]
     blynk_camera_auth = config["blynk_camera_auth"]
@@ -65,10 +77,17 @@ def check_and_update_repository(config):
     try:
         os.chdir(repo_path)
 
-        ok, out = _run(["git", "fetch", "origin"])
+        ok, out = False, ""
+        for attempt in range(1, FETCH_ATTEMPTS + 1):
+            ok, out = _run(["git"] + GIT_LOW_SPEED + ["fetch", "origin"])
+            if ok:
+                break
+            print(f"git fetch failed (attempt {attempt}/{FETCH_ATTEMPTS}): {out}")
+            if attempt < FETCH_ATTEMPTS:
+                time.sleep(FETCH_RETRY_DELAY_S)
         if not ok:
-            print(f"git fetch failed: {out}")
-            _report_error(config, f"fetch failed: {out}")
+            _report_error(config, f"fetch failed, will retry next cycle: {out}")
+            update_blynk_pin_value(1, blynk_camera_auth, blynk_camera_run_update_pin)
             return
 
         local = subprocess.check_output(["git", "rev-parse", "@"], text=True).strip()
