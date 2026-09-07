@@ -20,8 +20,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-from blynk import get_blynk_properties, get_sys_response, update_blynk_url, update_blynk_batch, update_blynk_pin_value
+from blynk import failure_notes, get_blynk_properties, get_sys_response, update_blynk_url, update_blynk_batch, update_blynk_pin_value
 from clock import CLOCK_FIX_THRESHOLD_S, clock_offset_from_response, fix_system_clock, format_offset
+import cloudinary
 from cloudinary import upload_to_cloudinary
 from settings_cache import load_cached_settings, save_cached_settings
 from telemetry import get_boot_uptime, get_input_voltage, get_throttled, queue_cycle_log, send_cycle_logs
@@ -35,6 +36,7 @@ from utils import (
     get_next_start_time,
     get_next_start_time_from_start,
     get_wifi_signal_strength,
+    harden_dns,
     is_connected_to_internet,
     is_in_time_interval,
     shutdown_device,
@@ -42,7 +44,7 @@ from utils import (
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.6.0"
+version = "3.6.1"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 TEMP_PHOTO_PATH = "/tmp/photo.jpg"
@@ -276,6 +278,7 @@ def run():
         queue_cycle_log(make_cycle_log(status="no_internet"))
         handle_deep_sleep(default_deep_sleep_interval)
     disable_wifi_power_save()
+    net_notes = [harden_dns()]
 
     # --- 3. beeSys: temperature for the overlay + clock reference ---------
     settings_fetch_start = time.monotonic()
@@ -425,6 +428,8 @@ def run():
     cycle_interval, cycle_startup = next_wake_for_cycle()
     startup_time_str = cycle_startup or get_next_start_time(cycle_interval)
     status = "OK (mimo pracovní dobu)" if out_of_hours else "OK"
+    if not secure_url:
+        status = "upload_fail"
     if settings_source == "cache":
         status += " [cache]"
     elif settings_source == "default":
@@ -444,7 +449,17 @@ def run():
     updates = {pin: value for pin, value in updates.items() if value is not None}
     update_blynk_batch(updates, blynk_camera_auth)
 
-    send_cycle_logs(config, make_cycle_log(status=status, error=clock_note, person=person_detected))
+    # Diagnostics for the cycle log: clock fix, DNS note and what failed on
+    # the network and how (only when something did) — the dashboard tooltip is
+    # the only window into the link quality without SSH access to the Pi.
+    if cloudinary.last_error:
+        net_notes.append(f"upload: {cloudinary.last_error}")
+    net_notes.extend(failure_notes())
+    problems = [n for n in net_notes if not n.startswith("dns ")]
+    diagnostics = "; ".join(net_notes) if problems else ""
+    error_text = "; ".join(part for part in (clock_note, diagnostics) if part)
+
+    send_cycle_logs(config, make_cycle_log(status=status, error=error_text, person=person_detected))
 
     # Person-triggered continuous monitoring only makes sense within working
     # hours; outside the window we always upload the single photo above and

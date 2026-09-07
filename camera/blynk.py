@@ -25,24 +25,52 @@ RETRY_DELAY_S = 2
 # so a dead link costs seconds, not minutes of battery.
 DOWN_TIMEOUT = (5, 8)
 _blynk_down = False
+# Short "what failed and how" notes collected during the cycle, e.g.
+# "Blynk get: ConnectionError/resolve x3". Reported in the cycle log so a bad
+# link can be diagnosed from the dashboard instead of the Pi's journal.
+_failure_notes = []
+
+
+def describe_error(e):
+    """'ReadTimeout', 'ConnectionError/resolve', 'HTTPError/503'... — enough
+    to tell DNS trouble from a stalled TCP connect from a slow server."""
+    name = type(e).__name__
+    text = str(e).lower()
+    if "resolve" in text or "name or service" in text or "getaddrinfo" in text:
+        return f"{name}/resolve"
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    if status:
+        return f"{name}/{status}"
+    return name
+
+
+def failure_notes():
+    return list(_failure_notes)
 
 
 def _retrying(label, attempts, fn):
     """Run fn() up to `attempts` times; returns its result, or None when every
     attempt failed. A 4xx other than 429 is definitive (bad token / pin), so
     it is not retried."""
+    kinds = []
     for attempt in range(1, attempts + 1):
         try:
-            return fn()
+            result = fn()
+            if kinds:
+                _failure_notes.append(f"{label}: {'+'.join(kinds)} then ok")
+            return result
         except requests.HTTPError as e:
             status = getattr(e.response, "status_code", None)
             print(f"{label}: attempt {attempt}/{attempts} failed: {e}")
+            kinds.append(describe_error(e))
             if status is not None and 400 <= status < 500 and status != 429:
-                return None
+                break
         except Exception as e:
             print(f"{label}: attempt {attempt}/{attempts} failed: {e}")
+            kinds.append(describe_error(e))
         if attempt < attempts:
             time.sleep(RETRY_DELAY_S)
+    _failure_notes.append(f"{label}: {'+'.join(kinds)}")
     return None
 
 

@@ -14,13 +14,13 @@ All application code lives in `camera/`. The system runs as a systemd service (`
 
 **Execution flow** (`main.py`, v3.6+):
 1. Load `config.json` → **capture photo first** with `rpicam-still` (+ optional YOLOv4-tiny person detection) — nothing network-related can block the picture
-2. Wait for internet (with wlan0 re-kicks) → disable Wi-Fi power save for the cycle
+2. Wait for internet (with wlan0 re-kicks) → disable Wi-Fi power save for the cycle → put public resolvers (8.8.8.8, 1.1.1.1, short timeouts) first in `/etc/resolv.conf` for the cycle (hotspot DNS forwarder is the prime suspect for stalled requests)
 3. GET beeSys outdoor temperature; its HTTP `Date` header is the clock reference — if the system clock is off by > 60 s, set it and write the WittyPi RTC (`clock.py`; fixes frozen RTC after a power cut on a dead supercap, no manual force-sync needed)
 4. Read all cycle settings from Blynk in ONE multi-pin request with retries (working hours, sleep interval, OTA flag, last sync, force sync); window + interval fall back to `settings_cache.json` on the SD card when Blynk is unreachable (status `OK [cache]` / `OK [bez Blynku]`) — the cycle never aborts without a photo just because Blynk is down
 5. RTC sync via WittyPi (skipped when the clock was just fixed, or when Blynk is down but the clock verified OK)
 6. If OTA update flagged → `git reset --hard origin/main` and restart via `os.execv()`
 7. Outside working hours → still upload this photo, but sleep until the next window start
-8. Overlay text (PIL; timestamp = capture moment on the corrected clock) → upload to Cloudinary → update Blynk dashboard → POST cycle telemetry to beeSys
+8. Overlay text (PIL; timestamp = capture moment on the corrected clock) → upload to Cloudinary (3 attempts; status `upload_fail` when all fail) → update Blynk dashboard → POST cycle telemetry to beeSys; the log's `error` carries network diagnostics (DNS note, which request failed and how: `ConnectTimeout`, `ConnectionError/resolve`, …)
 9. If person detected → restart script immediately (continuous monitoring at 1-min intervals)
 10. Otherwise → schedule WittyPi deep sleep → shutdown via GPIO pin 4
 

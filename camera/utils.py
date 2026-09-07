@@ -25,6 +25,42 @@ def generate_text(temperature, camera_number, when=None):
     return f"CAM {camera_number}   {format_photo_time(when)}   {shown}°C"
 
 
+# Public resolvers used for the cycle. The phone hotspot's own DNS forwarder is
+# the prime suspect for "ping works, every HTTPS request stalls ~10 s": glibc
+# retries a dead resolver 2x5 s before giving up, and Python has no DNS cache,
+# so every request pays it again. The hotspot resolver stays as last resort.
+PUBLIC_RESOLVERS = ("8.8.8.8", "1.1.1.1")
+RESOLV_CONF = "/etc/resolv.conf"
+
+
+def harden_dns():
+    """Put public resolvers with short timeouts first in resolv.conf for this
+    cycle (DHCP rewrites the file on the next boot). Returns a short note for
+    the cycle log, e.g. 'dns 10.80.1.1>8.8.8.8' or the reason it was skipped."""
+    try:
+        with open(RESOLV_CONF) as f:
+            original = f.read()
+    except Exception as e:
+        return f"dns: resolv read failed ({type(e).__name__})"
+    current = [line.split()[1] for line in original.splitlines()
+               if line.startswith("nameserver") and len(line.split()) > 1]
+    keep = [ns for ns in current if ns not in PUBLIC_RESOLVERS][:1]
+    lines = [
+        "# rewritten by the camera cycle — DHCP restores it on the next boot",
+        "options timeout:2 attempts:2",
+    ]
+    lines += [f"nameserver {ns}" for ns in PUBLIC_RESOLVERS]
+    lines += [f"nameserver {ns}" for ns in keep]
+    try:
+        with open(RESOLV_CONF, "w") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception as e:
+        return f"dns: resolv write failed ({type(e).__name__})"
+    note = f"dns {','.join(current) or '?'}>{PUBLIC_RESOLVERS[0]}"
+    print(note)
+    return note
+
+
 def disable_wifi_power_save(interface="wlan0"):
     """Turn off 802.11 power saving for this cycle.
 
