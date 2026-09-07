@@ -27,6 +27,7 @@ from cloudinary import upload_to_cloudinary
 from settings_cache import load_cached_settings, save_cached_settings
 from telemetry import get_boot_uptime, get_input_voltage, get_throttled, queue_cycle_log, send_cycle_logs
 from utils import (
+    DEFAULT_WIFI_MTU,
     delete_photo,
     disable_wifi_power_save,
     format_photo_time,
@@ -39,12 +40,13 @@ from utils import (
     harden_dns,
     is_connected_to_internet,
     is_in_time_interval,
+    set_wifi_mtu,
     shutdown_device,
 )
 from witty_sheduler import schedule_deep_sleep, sync_time
 from update_repository import check_and_update_repository
 
-version = "3.6.1"
+version = "3.6.2"
 sleep_interval_person_detected = 1
 default_deep_sleep_interval = 300
 TEMP_PHOTO_PATH = "/tmp/photo.jpg"
@@ -278,7 +280,7 @@ def run():
         queue_cycle_log(make_cycle_log(status="no_internet"))
         handle_deep_sleep(default_deep_sleep_interval)
     disable_wifi_power_save()
-    net_notes = [harden_dns()]
+    net_notes = [set_wifi_mtu(config.get("wifi_mtu", DEFAULT_WIFI_MTU)), harden_dns()]
 
     # --- 3. beeSys: temperature for the overlay + clock reference ---------
     settings_fetch_start = time.monotonic()
@@ -455,7 +457,7 @@ def run():
     if cloudinary.last_error:
         net_notes.append(f"upload: {cloudinary.last_error}")
     net_notes.extend(failure_notes())
-    problems = [n for n in net_notes if not n.startswith("dns ")]
+    problems = [n for n in net_notes if not (n.startswith("dns ") or n.startswith("mtu "))]
     diagnostics = "; ".join(net_notes) if problems else ""
     error_text = "; ".join(part for part in (clock_note, diagnostics) if part)
 

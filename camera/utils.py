@@ -61,6 +61,28 @@ def harden_dns():
     return note
 
 
+# Smaller frames survive a marginal link far better: on the apiary hotspot
+# (-67 dBm) pings and TCP handshakes pass while TLS handshakes and uploads
+# stall with ReadTimeout — full-size 1500 B frames are the ones that die.
+# Frame error rate scales with frame length, and every Wi-Fi retry of a big
+# frame fails just as often. Set per cycle, back to default on reboot.
+DEFAULT_WIFI_MTU = 800
+
+
+def set_wifi_mtu(mtu=DEFAULT_WIFI_MTU, interface="wlan0"):
+    """Lower the interface MTU for this cycle. Returns a short note for the
+    cycle log ('mtu 800') or the reason it was skipped."""
+    try:
+        result = subprocess.run(["ip", "link", "set", interface, "mtu", str(int(mtu))],
+                                capture_output=True, text=True, timeout=10)
+    except Exception as e:
+        return f"mtu: {type(e).__name__}"
+    if result.returncode != 0:
+        return f"mtu: failed ({(result.stderr or result.stdout).strip()[:60]})"
+    print(f"WiFi MTU set to {mtu}.")
+    return f"mtu {mtu}"
+
+
 def disable_wifi_power_save(interface="wlan0"):
     """Turn off 802.11 power saving for this cycle.
 

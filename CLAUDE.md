@@ -13,8 +13,8 @@ Target hardware: Raspberry Pi Zero 2 WH + Arducam 8MP IMX219 + WittyPi 4 Mini.
 All application code lives in `camera/`. The system runs as a systemd service (`camera.service`) that executes `camera/main.py` on boot.
 
 **Execution flow** (`main.py`, v3.6+):
-1. Load `config.json` → **capture photo first** with `rpicam-still` (+ optional YOLOv4-tiny person detection) — nothing network-related can block the picture
-2. Wait for internet (with wlan0 re-kicks) → disable Wi-Fi power save for the cycle → put public resolvers (8.8.8.8, 1.1.1.1, short timeouts) first in `/etc/resolv.conf` for the cycle (hotspot DNS forwarder is the prime suspect for stalled requests)
+1. Load `config.json` → **capture photo first** with `rpicam-still` (one retry after 5 s — exit 255 right after an OTA restart; + optional YOLOv4-tiny person detection) — nothing network-related can block the picture
+2. Wait for internet (with wlan0 re-kicks) → disable Wi-Fi power save and lower wlan0 MTU to 800 for the cycle (`wifi_mtu` in config.json overrides; big frames die on the marginal hotspot link — telemetry showed ReadTimeouts with working pings and TCP connects) → put public resolvers (8.8.8.8, 1.1.1.1, short timeouts) first in `/etc/resolv.conf` for the cycle (hotspot DNS forwarder is the prime suspect for stalled requests)
 3. GET beeSys outdoor temperature; its HTTP `Date` header is the clock reference — if the system clock is off by > 60 s, set it and write the WittyPi RTC (`clock.py`; fixes frozen RTC after a power cut on a dead supercap, no manual force-sync needed)
 4. Read all cycle settings from Blynk in ONE multi-pin request with retries (working hours, sleep interval, OTA flag, last sync, force sync); window + interval fall back to `settings_cache.json` on the SD card when Blynk is unreachable (status `OK [cache]` / `OK [bez Blynku]`) — the cycle never aborts without a photo just because Blynk is down
 5. RTC sync via WittyPi (skipped when the clock was just fixed, or when Blynk is down but the clock verified OK)

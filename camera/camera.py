@@ -1,8 +1,16 @@
 import shutil
 import subprocess
+import time
 from PIL import Image, ImageDraw, ImageFont
 
+CAPTURE_ATTEMPTS = 2
+CAPTURE_RETRY_DELAY_S = 5
+
+
 def capture_photo(temp_path, use_tuning_file):
+    """rpicam-still into temp_path. One retry: right after an OTA restart (or
+    any other quick re-run) the camera stack can still be busy and rpicam-still
+    exits 255 although the sensor is fine a few seconds later."""
     tuning_file = "imx219_160d.json"
 
     command = [
@@ -14,14 +22,18 @@ def capture_photo(temp_path, use_tuning_file):
     if use_tuning_file:
         command.extend(["--tuning-file", tuning_file])
 
-    try:
-        subprocess.run(command, check=True, timeout=30)
-        print("Photo captured successfully.")
-        return True, None
-    except Exception as e:
-        error_message = f"An error occurred while capturing the photo: {e}"
-        print(error_message)
-        return False, error_message
+    error_message = None
+    for attempt in range(1, CAPTURE_ATTEMPTS + 1):
+        try:
+            subprocess.run(command, check=True, timeout=30)
+            print("Photo captured successfully.")
+            return True, None
+        except Exception as e:
+            error_message = f"An error occurred while capturing the photo: {e}"
+            print(f"{error_message} (attempt {attempt}/{CAPTURE_ATTEMPTS})")
+            if attempt < CAPTURE_ATTEMPTS:
+                time.sleep(CAPTURE_RETRY_DELAY_S)
+    return False, error_message
 
 def add_text_to_image(input_path, output_path, text):
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
